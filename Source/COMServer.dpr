@@ -22,6 +22,7 @@ begin
   end; //已有一个实例
   
   Application.Initialize;
+  Application.Title := '数据服务';
   Application.CreateForm(TfFormMain, fFormMain);
   Application.Run;
 

@@ -9,42 +9,71 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  CPortTypes, UTrayIcon, CPort, ExtCtrls, IdBaseComponent, IdComponent,
-  IdCustomTCPServer, IdTCPServer, ComCtrls, StdCtrls, IdContext;
+  CPort, CPortTypes, UTrayIcon, cxGraphics, cxControls, cxLookAndFeels,
+  cxLookAndFeelPainters, cxContainer, cxEdit, IdContext, ExtCtrls,
+  IdBaseComponent, IdComponent, IdCustomTCPServer, IdTCPServer, StdCtrls,
+  cxTextEdit, cxLabel, cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase,
+  dxNavBar, ComCtrls;
 
 type
   TCOMItem = record
     FItemName: string;            //节点名
-    FItemGroup: string;           //节点分组,每组有"收-发"各一
+    FItemGroup: string;           //节点分组
     FPortName: string;            //端口名称
     FBaudRate: TBaudRate;         //波特率
     FDataBits: TDataBits;         //数据位
     FStopBits: TStopBits;         //起停位
 
     FCOMObject: TComPort;         //串口对象
-    FBuffer: string;              //数据缓存
     FMemo: string;                //描述信息
+    FBuffer: string;              //数据缓存
+    FData: string;                //协议数据
+    FDataLast: Int64;             //接收时间
+  end;
+
+  PDataItem = ^TDataItem;
+  TDataItem = record
+    Fsoh    : array[0..0] of Char;    //协议头
+    Fno     : array[0..0] of Char;    //数据描述
+    Fylr    : array[0..4] of Char;    //远光左右偏移
+    Fyud    : array[0..4] of Char;    //远光上下便宜
+    Fyi     : array[0..3] of Char;    //远光强度
+    Fjh     : array[0..2] of Char;    //近光灯高
+    Fjlr    : array[0..4] of Char;    //近光左右偏移
+    Fjud    : array[0..4] of Char;    //近光上下偏移
+    Fjp     : array[0..3] of Char;    //灯高比值
+    Fend    : array[0..0] of Char;    //协议尾
   end;
 
   TfFormMain = class(TForm)
-    GroupBox1: TGroupBox;
     MemoLog: TMemo;
     StatusBar1: TStatusBar;
-    CheckSrv: TCheckBox;
-    EditPort: TLabeledEdit;
     IdTCPServer1: TIdTCPServer;
-    CheckAuto: TCheckBox;
-    CheckLoged: TCheckBox;
     Timer1: TTimer;
-    ComPort1: TComPort;
-    BtnRefresh: TButton;
-    CheckAdjust: TCheckBox;
+    dxNavBar1: TdxNavBar;
+    dxNavGroup1: TdxNavBarGroup;
+    dxNavGroup2: TdxNavBarGroup;
+    dxNavGroup2Control: TdxNavBarGroupControl;
+    CheckAuto: TcxCheckBox;
+    CheckSrv: TcxCheckBox;
+    CheckAdjust: TcxCheckBox;
+    EditPort: TcxTextEdit;
+    cxLabel1: TcxLabel;
+    HintPanel: TPanel;
+    Image1: TImage;
+    Image2: TImage;
+    Bevel1: TBevel;
+    dxNavGroup1Control: TdxNavBarGroupControl;
+    CheckLoged: TcxCheckBox;
+    HintLabel: TLabel;
+    BtnRefresh: TcxLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
     procedure CheckSrvClick(Sender: TObject);
     procedure CheckLogedClick(Sender: TObject);
     procedure IdTCPServer1Execute(AContext: TIdContext);
+    procedure dxNavGroup2Expanded(Sender: TObject);
     procedure BtnRefreshClick(Sender: TObject);
   private
     { Private declarations }
@@ -61,8 +90,12 @@ type
     function FindCOMItem(const nCOM: TObject): Integer; overload;
     function FindSameGroup(const nIdx: Integer): Integer; overload;
     //检索数据
+    procedure RedirectData(const nItem,nGroup: Integer; const nData: string);
+    procedure ParseProtocol(const nItem,nGroup: Integer);
     procedure OnCOMData(Sender: TObject; Count: Integer);
     //数据处理
+    function AdjustProtocol(const nData: PDataItem): Boolean;
+    //校正数据
   public
     { Public declarations }
   end;
@@ -74,10 +107,15 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, Registry, ULibFun, USysLoger;
+  IniFiles, Registry, ULibFun, USysLoger, UFormInputbox;
+
+const
+  cChar_Head          = Char($01);               //协议头
+  cChar_End           = Char($FF);               //协议尾
+  cSizeData           = SizeOf(TDataItem);       //数据大小
 
 var
-  gPath: string;               //程序路径
+  gPath: string;                        //程序路径
 
 resourcestring
   sHint               = '提示';
@@ -104,13 +142,20 @@ begin
   FTrayIcon.Hint := Application.Title;
   FTrayIcon.Visible := True;
 
+  CheckLoged.Checked := True;
+  {$IFNDEF DEBUG}  
+  dxNavGroup2.OptionsExpansion.Expanded := False;
+  {$ENDIF}
+
   nIni := nil;
   nReg := nil;
   try
     nIni := TIniFile.Create(gPath + 'Config.ini');
     EditPort.Text := nIni.ReadString('Config', 'Port', '8000');
+
     Timer1.Enabled := nIni.ReadBool('Config', 'Enabled', False);
-    
+    CheckAdjust.Checked := nIni.ReadBool('Config', 'CloseAdjust', False);
+
     nReg := TRegistry.Create;
     nReg.RootKey := HKEY_CURRENT_USER;
 
@@ -125,11 +170,6 @@ begin
   SetLength(FCOMPorts, 0);
   LoadCOMConfig;
   //读取串口配置
-
-  {$IFDEF DEBUG}
-  CheckLoged.Checked := True;
-  CheckAdjust.Checked := True;
-  {$ENDIF}
 end;
 
 procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -141,6 +181,7 @@ begin
   try
     nIni := TIniFile.Create(gPath + 'Config.ini');
     nIni.WriteBool('Config', 'Enabled', CheckSrv.Checked);
+    nIni.WriteBool('Config', 'CloseAdjust', CheckAdjust.Checked);
     SaveFormConfig(Self, nIni);
 
     if nIni.ReadString('Config', 'Port', '') = '' then
@@ -166,16 +207,18 @@ procedure TfFormMain.Timer1Timer(Sender: TObject);
 begin
   Timer1.Enabled := False;
   CheckSrv.Checked := True;
+
+  {$IFNDEF DEBUG}
+  if CheckSrv.Checked then
+    FTrayIcon.Minimize;
+  //xxxxx
+  {$ENDIF}
 end;
 
 procedure TfFormMain.CheckSrvClick(Sender: TObject);
-var nIdx: Integer;
+var nIdx,nErr: Integer;
 begin
-  if not IdTCPServer1.Active then
-    IdTCPServer1.DefaultPort := StrToInt(EditPort.Text);
-  IdTCPServer1.Active := CheckSrv.Checked;
-  EditPort.Enabled := not CheckSrv.Checked;
-
+  nErr := 0;
   for nIdx:=Low(FCOMPorts) to High(FCOMPorts) do
    with FCOMPorts[nIdx] do
     if Assigned(FCOMObject) then
@@ -186,10 +229,22 @@ begin
     except
       on E:Exception do
       begin
+        Inc(nErr);
         FMemo := E.Message;
         WriteLog(E.Message);
       end;
     end;
+
+  if nErr > 0 then
+  begin
+    CheckSrv.Checked := False;
+    Exit;
+  end; //any error
+
+  if not IdTCPServer1.Active then
+    IdTCPServer1.DefaultPort := StrToInt(EditPort.Text);
+  IdTCPServer1.Active := CheckSrv.Checked;
+  EditPort.Enabled := not CheckSrv.Checked;
 end;
 
 procedure TfFormMain.CheckLogedClick(Sender: TObject);
@@ -216,20 +271,28 @@ var nIdx: Integer;
 begin
   MemoLog.Clear;
   MemoLog.Lines.Add('刷新设备列表:');
-  
+
   for nIdx:=Low(FCOMPorts) to High(FCOMPorts) do
   with FCOMPorts[nIdx],MemoLog.Lines do
   begin
     Add('设备: ' + IntToStr(nIdx+1));
-    Add('|-- 名称: ' + FItemName);
-    Add('|-- 分组: ' + FItemGroup);
-    Add('|-- 端口: ' + FPortName);
-    Add('|-- 速率: ' + BaudRateToStr(FBaudRate));
-    Add('|-- 数位: ' + DataBitsToStr(FDataBits));
-    Add('|-- 停位: ' + StopBitsToStr(FStopBits));
-    Add('|-- 备注: ' + FMemo);
+    Add('|--- 名称: ' + FItemName);
+    Add('|--- 分组: ' + FItemGroup);
+    Add('|--- 端口: ' + FPortName);
+    Add('|--- 速率: ' + BaudRateToStr(FBaudRate));
+    Add('|--- 数位: ' + DataBitsToStr(FDataBits));
+    Add('|--- 停位: ' + StopBitsToStr(FStopBits));
+    Add('|--- 备注: ' + FMemo);
     Add('');
   end;
+end;
+
+procedure TfFormMain.dxNavGroup2Expanded(Sender: TObject);
+var nStr: string;
+begin
+  if ShowInputPWDBox('请输入管理员密码:', '', nStr) then
+       dxNavGroup2.OptionsExpansion.Expanded := nStr = 'admin'
+  else dxNavGroup2.OptionsExpansion.Expanded := False;
 end;
 
 //------------------------------------------------------------------------------
@@ -274,6 +337,8 @@ begin
       FStopBits  := StrToStopBits(ReadString(nList[nIdx], 'StopBits', '1'));
 
       FBuffer := '';
+      FData := '';
+      FDataLast := 0;
       FCOMObject := nil;
 
       if ReadInteger(nList[nIdx], 'Enable', 0) <> 1 then
@@ -296,8 +361,8 @@ begin
 
       with FCOMObject.Timeouts do
       begin
-        ReadTotalConstant := 100;
-        ReadTotalMultiplier := 10;
+        ReadTotalConstant := 1000;
+        ReadTotalMultiplier := 100;
       end;  
     end;
   finally
@@ -337,6 +402,7 @@ begin
   end;
 end;
 
+//------------------------------------------------------------------------------
 //Date: 2016-05-05
 //Parm: 对象;数据大小
 //Desc: 处理串口数据
@@ -345,44 +411,151 @@ var nStr: string;
     nIdx,nInt: Integer;
     nItem,nGroup: Integer;
 begin
-  nItem := FindCOMItem(Sender);
-  if (nItem < 0) or (FCOMPorts[nItem].FCOMObject = nil) then
-  begin
-    WriteLog('收到数据,但无法匹配串口对象.');
-    Exit;
-  end;
+  try
+    nItem := FindCOMItem(Sender);
+    if (nItem < 0) or (FCOMPorts[nItem].FCOMObject = nil) then
+    begin
+      WriteLog('收到数据,但无法匹配串口对象.');
+      Exit;
+    end;
 
-  nGroup := FindSameGroup(nItem);
-  if (nGroup < 0) or (FCOMPorts[nGroup].FCOMObject = nil) then
-  begin
-    nStr := '收到数据,但无法匹配串口[ %s ]同组对象.';
-    WriteLog(Format(nStr, [FCOMPorts[nItem].FItemName]));
-    Exit;
-  end;
+    with FCOMPorts[nItem] do
+    begin
+      FCOMObject.ReadStr(FBuffer, Count);
+      nStr := '';
+      nInt := Length(FBuffer);
 
+      for nIdx:=1 to nInt do
+        nStr := nStr + IntToHex(Ord(FBuffer[nIdx]), 2) + ' ';
+      //十六进制
+
+      nStr := Format('串口:[ %s ] 数据:[ %s ]', [FItemName, nStr]);
+      WriteLog(nStr);
+    end; //读取数据
+
+    nGroup := FindSameGroup(nItem);
+    if (nGroup < 0) or (FCOMPorts[nGroup].FCOMObject = nil) then
+    begin
+      nStr := '收到数据,但无法匹配串口[ %s ]同组对象.';
+      WriteLog(Format(nStr, [FCOMPorts[nItem].FItemName]));
+      Exit;
+    end;
+
+    if CheckAdjust.Checked then
+         RedirectData(nItem, nGroup, FCOMPorts[nItem].FBuffer)  //直接转发
+    else ParseProtocol(nItem, nGroup);                          //分析协议
+  except
+    on E: Exception do
+    begin
+      WriteLog(E.Message);
+    end;
+  end;
+end;
+
+//Date: 2016/5/6
+//Parm: 源端口;目标端口;数据
+//Desc: 将nData数据转发到nGroup端口
+procedure TfFormMain.RedirectData(const nItem,nGroup: Integer;
+ const nData: string);
+var nStr: string;
+begin
+  FCOMPorts[nGroup].FCOMObject.WriteStr(nData);
+  //xxxxx
+  
+  nStr := '串口:[ %s ] 处理:[ 转发至 %s ]';
+  nStr := Format(nStr, [FCOMPorts[nItem].FItemName, FCOMPorts[nGroup].FItemName]);
+  WriteLog(nStr);
+end;
+
+//Date: 2016/5/6
+//Parm: 源端口;转发端口
+//Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+procedure TfFormMain.ParseProtocol(const nItem, nGroup: Integer);
+var i,nS,nE,nPos: Integer;
+    nData: TDataItem;
+    nBuf: array[0..cSizeData-1] of Char;
+begin
   with FCOMPorts[nItem] do
   begin
-    FCOMObject.ReadStr(FBuffer, Count);
-    nStr := '';
-    nInt := Length(FBuffer);
+    nE := Length(FData);
+    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      nE := 0;
+    end; //超时数据直接转发
 
-    for nIdx:=1 to nInt do
-      nStr := nStr + IntToHex(Ord(FBuffer[nIdx]), 1) + ' ';
-    //十六进制
+    if nE > cSizeData then
+    begin
+      while nE > 0 do
+      begin
+        nPos := nE;
+        Dec(nE);
+        if FData[nPos] = cChar_Head then Break;
+      end;
 
-    nStr := Format('串口:[ %s ] 数据:[ %s ]', [FItemName, nStr]);
-    WriteLog(nStr);
-  end; //读取数据
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
+        System.Delete(FData, 1, nE);
+      end;
+    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
 
-  if CheckAdjust.Checked then
-  begin
-    FCOMPorts[nGroup].FCOMObject.WriteStr(FCOMPorts[nItem].FBuffer);
-    nStr := '串口:[ %s ] 处理:[ 转发至 %s ]';
-    nStr := Format(nStr, [FCOMPorts[nItem].FItemName, FCOMPorts[nGroup].FItemName]);
+    //--------------------------------------------------------------------------
+    nS := Pos(cChar_Head, FBuffer);
+    if (nS < 1) and (FData = '') then
+    begin
+      RedirectData(nItem, nGroup, FBuffer);
+      Exit;
+    end; //非协议数据直接转发
 
-    WriteLog(nStr);
-    Exit;
-  end; //直接转发
+    FDataLast := GetTickCount;
+    FData :=  FData + FBuffer;
+    //保存数据待分析
+
+    nS := 0;
+    nE := 0;
+    nPos := Length(FData);
+
+    for i:=nPos downto 1 do
+    begin
+      if FData[i] = cChar_End then
+        nE := i;
+      //xxxx
+
+      if (FData[i] = cChar_Head) and (nE > 0) then
+      begin
+        nS := i;
+        Break;
+      end;
+    end;
+
+    if (nS < 1) or (nE-nS <> cSizeData-1) then Exit;
+    //未找到完整协议包
+
+    //--------------------------------------------------------------------------
+    StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData));
+    Move(nBuf, nData, cSizeData);
+    //复制到协议包,准备分析
+
+    if AdjustProtocol(@nData) then
+    begin
+      SetString(FBuffer, PChar(@nData.Fsoh[0]), cSizeData);
+      FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+    end;
+    
+    RedirectData(nItem, nGroup, FData);
+    FData := '';
+    //发送数据
+  end;
+end;
+
+//Date: 2016/5/7
+//Parm: 协议数据
+//Desc: 分析协议数据,有必要时校正
+function TfFormMain.AdjustProtocol(const nData: PDataItem): Boolean;
+begin
+  Result := False;
 end;
 
 end.
