@@ -132,6 +132,7 @@ procedure TfFormMain.FormCreate(Sender: TObject);
 var nIni: TIniFile;
     nReg: TRegistry;
 begin
+  Randomize;
   gPath := ExtractFilePath(Application.ExeName);
   InitGlobalVariant(gPath, gPath+sConfig, gPath+sConfig);
 
@@ -361,8 +362,8 @@ begin
 
       with FCOMObject.Timeouts do
       begin
-        ReadTotalConstant := 1000;
-        ReadTotalMultiplier := 100;
+        ReadTotalConstant := 100;
+        ReadTotalMultiplier := 10;
       end;  
     end;
   finally
@@ -429,7 +430,7 @@ begin
         nStr := nStr + IntToHex(Ord(FBuffer[nIdx]), 2) + ' ';
       //十六进制
 
-      nStr := Format('串口:[ %s ] 数据:[ %s ]', [FItemName, nStr]);
+      nStr := Format('端口:[ %s ] 数据:[ %s ]', [FItemName, nStr]);
       WriteLog(nStr);
     end; //读取数据
 
@@ -462,7 +463,7 @@ begin
   FCOMPorts[nGroup].FCOMObject.WriteStr(nData);
   //xxxxx
   
-  nStr := '串口:[ %s ] 处理:[ 转发至 %s ]';
+  nStr := '端口:[ %s ] 处理:[ 转发至 %s ]';
   nStr := Format(nStr, [FCOMPorts[nItem].FItemName, FCOMPorts[nGroup].FItemName]);
   WriteLog(nStr);
 end;
@@ -530,8 +531,16 @@ begin
       end;
     end;
 
-    if (nS < 1) or (nE-nS <> cSizeData-1) then Exit;
-    //未找到完整协议包
+    if (nS < 1) or (nE-nS <> cSizeData-1) then
+    begin
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, FData);
+        FData := '';
+      end;
+
+      Exit;
+    end; //未找到完整协议包
 
     //--------------------------------------------------------------------------
     StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData));
@@ -543,7 +552,7 @@ begin
       SetString(FBuffer, PChar(@nData.Fsoh[0]), cSizeData);
       FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
     end;
-    
+
     RedirectData(nItem, nGroup, FData);
     FData := '';
     //发送数据
@@ -554,8 +563,100 @@ end;
 //Parm: 协议数据
 //Desc: 分析协议数据,有必要时校正
 function TfFormMain.AdjustProtocol(const nData: PDataItem): Boolean;
+var nStr,nSVal: string;
+    nIdx,nInt: Integer;
+    nPY,nDG,nDQ,nRnd,nVal: Double;
 begin
   Result := False;
+  {$IFDEF DEBUG}
+  nStr := '上下:[ ' + nData.Fjud + '] ' +
+          '灯高:[ ' + nData.Fjh + '] ' +
+          '强度:[ ' + nData.Fyi + ']';
+  WriteLog(nStr);
+  {$ENDIF}
+
+  nPY := StrToFloat(nData.Fjud);
+  //上下偏移
+  nDG := StrToFloat(nData.Fjh);
+  //灯高
+
+  if (nPY <> 0) and (nDG <> 0) then
+  begin
+    nVal := (nDG - nPY) / nDG;
+    nVal := Float2Float(nVal, 100, True);
+    //垂直偏移量
+
+    if (nVal >= 0.80) or (nVal <= 0.70) then
+    begin
+      nRnd := Random(100);
+      while (nRnd = 0) or (nRnd = 100) do
+        nRnd := Random(100);
+      //xxxxx
+
+      if nRnd >= 10 then
+        nRnd := nRnd / 10;
+      nRnd := 0.7 + nRnd / 100;
+      //随机值(0.71 - 0.79)
+
+      nVal := nDG - nRnd * nDG;
+      if nPY >= 0 then
+           nSVal := '+' + FloatToStr(nVal)
+      else nSVal := '-' + FloatToStr(nVal);
+
+      nIdx := Length(nSVal);
+      nInt := Length(nData.Fjud);
+      if nIdx < nInt then
+        nSVal := nSVal + StringOfChar('0', nInt-nIdx);
+      //xxxxx
+
+      nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
+                                               Copy(nSVal, 1, nInt)]);
+      WriteLog(nStr);
+
+      nInt := 1;
+      for nIdx:=Low(nData.Fjud) to High(nData.Fjud) do
+      begin
+        nData.Fjud[nIdx] := nSVal[nInt];
+        Inc(nInt);
+      end;
+      Result := True;
+    end;
+  end;
+
+  //----------------------------------------------------------------------------
+  nDQ := StrToFloat(nData.Fyi);
+  //远光强度
+
+  if (nDQ > 50) and(nDQ < 150) then
+  begin
+    nDQ := 150 + Random(50);
+    nSVal := FloatToStr(nDQ);
+
+    nInt := Length(nData.Fyi) - Length(nSVal);
+    if nInt > 0 then
+      nSVal := StringOfChar('0', nInt) + nSVal;
+    //xxxxx
+    
+    nInt := Length(nData.Fyi);
+    nStr := Format('灯光补偿:[ %s -> %s ]', [Copy(nData.Fyi, 1, nInt),
+                                             Copy(nSVal, 1, nInt)]);
+    WriteLog(nStr);
+
+    nInt := 1;
+    for nIdx:=Low(nData.Fyi) to High(nData.Fyi) do
+    begin
+      nData.Fyi[nIdx] := nSVal[nInt];
+      Inc(nInt);
+    end;
+    Result := True;
+  end; //灯光强度补偿
+
+  {$IFDEF DEBUG}
+  nStr := '上下:[ ' + nData.Fjud + '] ' +
+          '灯高:[ ' + nData.Fjh + '] ' +
+          '强度:[ ' + nData.Fyi + ']';
+  WriteLog(nStr);
+  {$ENDIF}
 end;
 
 end.
