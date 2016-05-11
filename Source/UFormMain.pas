@@ -79,6 +79,8 @@ type
     { Private declarations }
     FTrayIcon: TTrayIcon;
     {*状态栏图标*}
+    FYGMinValue: Integer;
+    //远光强度
     FCOMPorts: array of TCOMItem;
     //串口对象
     procedure ShowLog(const nStr: string);
@@ -156,6 +158,9 @@ begin
 
     Timer1.Enabled := nIni.ReadBool('Config', 'Enabled', False);
     CheckAdjust.Checked := nIni.ReadBool('Config', 'CloseAdjust', False);
+
+    FYGMinValue := nIni.ReadInteger('Config', 'YGMinValue', 5000);
+    //远光强度下限
 
     nReg := TRegistry.Create;
     nReg.RootKey := HKEY_CURRENT_USER;
@@ -357,6 +362,8 @@ begin
         BaudRate := FBaudRate;
         FDataBits := FDataBits;
         FStopBits := FStopBits;
+
+        SyncMethod := smWindowSync;
         OnRxChar := OnCOMData;
       end;
 
@@ -459,6 +466,7 @@ end;
 procedure TfFormMain.RedirectData(const nItem,nGroup: Integer;
  const nData: string);
 var nStr: string;
+    nIdx: Integer;
 begin
   FCOMPorts[nGroup].FCOMObject.WriteStr(nData);
   //xxxxx
@@ -466,6 +474,15 @@ begin
   nStr := '端口:[ %s ] 处理:[ 转发至 %s ]';
   nStr := Format(nStr, [FCOMPorts[nItem].FItemName, FCOMPorts[nGroup].FItemName]);
   WriteLog(nStr);
+
+  {$IFDEF DEBUG}
+  WriteLog('数据(10): ' + nData);
+  nStr := '';
+
+  for nIdx:=1 to Length(nData) do
+    nStr := nStr + IntToHex(Ord(nData[nIdx]), 2) + ' ';
+  WriteLog('数据(16): ' + nStr);
+  {$ENDIF}
 end;
 
 //Date: 2016/5/6
@@ -549,7 +566,7 @@ begin
 
     if AdjustProtocol(@nData) then
     begin
-      SetString(FBuffer, PChar(@nData.Fsoh[0]), cSizeData);
+      SetString(FBuffer, PChar(@nData.Fsoh), cSizeData);
       FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
     end;
 
@@ -571,6 +588,7 @@ begin
   {$IFDEF DEBUG}
   nStr := '上下:[ ' + nData.Fjud + '] ' +
           '灯高:[ ' + nData.Fjh + '] ' +
+          '比值:[ ' + nData.Fjp + '] ' +
           '强度:[ ' + nData.Fyi + ']';
   WriteLog(nStr);
   {$ENDIF}
@@ -586,7 +604,7 @@ begin
     nVal := Float2Float(nVal, 100, True);
     //垂直偏移量
 
-    if (nVal >= 0.80) or (nVal <= 0.70) then
+    if (nVal <= 0.70) or ((nVal >= 0.80) and (nVal < 1.5)) then
     begin
       nRnd := Random(100);
       while (nRnd = 0) or (nRnd = 100) do
@@ -599,16 +617,14 @@ begin
       //随机值(0.71 - 0.79)
 
       nVal := nDG - nRnd * nDG;
-      if nPY >= 0 then
-           nSVal := '+' + FloatToStr(nVal)
-      else nSVal := '-' + FloatToStr(nVal);
+      nSVal := Format('%.2f', [nVal]);
+      nSVal := '+' + nSVal;
 
       nIdx := Length(nSVal);
       nInt := Length(nData.Fjud);
       if nIdx < nInt then
         nSVal := nSVal + StringOfChar('0', nInt-nIdx);
       //xxxxx
-
       nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
                                                Copy(nSVal, 1, nInt)]);
       WriteLog(nStr);
@@ -618,7 +634,16 @@ begin
       begin
         nData.Fjud[nIdx] := nSVal[nInt];
         Inc(nInt);
-      end;
+      end; //偏移量
+
+      nSVal := Format('%.3f', [nRnd]);
+      nInt := 1;
+      for nIdx:=Low(nData.Fjp) to High(nData.Fjp) do
+      begin
+        nData.Fjp[nIdx] := nSVal[nInt];
+        Inc(nInt);
+      end; //偏移比例
+
       Result := True;
     end;
   end;
@@ -627,7 +652,7 @@ begin
   nDQ := StrToFloat(nData.Fyi);
   //远光强度
 
-  if (nDQ > 50) and(nDQ < 150) then
+  if (nDQ > FYGMinValue / 100) and (nDQ < 150) then
   begin
     nDQ := 150 + Random(50);
     nSVal := FloatToStr(nDQ);
@@ -651,12 +676,13 @@ begin
     Result := True;
   end; //灯光强度补偿
 
-  {$IFDEF DEBUG}
+  {.$IFDEF DEBUG}
   nStr := '上下:[ ' + nData.Fjud + '] ' +
           '灯高:[ ' + nData.Fjh + '] ' +
+          '比值:[ ' + nData.Fjp + '] ' +
           '强度:[ ' + nData.Fyi + ']';
   WriteLog(nStr);
-  {$ENDIF}
+  {.$ENDIF}
 end;
 
 end.
