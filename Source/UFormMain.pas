@@ -56,7 +56,7 @@ type
     dxNavGroup2Control: TdxNavBarGroupControl;
     CheckAuto: TcxCheckBox;
     CheckSrv: TcxCheckBox;
-    CheckAdjust: TcxCheckBox;
+    CheckDetail: TcxCheckBox;
     EditPort: TcxTextEdit;
     cxLabel1: TcxLabel;
     HintPanel: TPanel;
@@ -67,6 +67,9 @@ type
     CheckLoged: TcxCheckBox;
     HintLabel: TLabel;
     BtnRefresh: TcxLabel;
+    CheckAdjust: TcxCheckBox;
+    CheckCP: TcxCheckBox;
+    CheckGQ: TcxCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -75,12 +78,15 @@ type
     procedure IdTCPServer1Execute(AContext: TIdContext);
     procedure dxNavGroup2Expanded(Sender: TObject);
     procedure BtnRefreshClick(Sender: TObject);
+    procedure CheckAdjustClick(Sender: TObject);
   private
     { Private declarations }
     FTrayIcon: TTrayIcon;
     {*状态栏图标*}
     FYGMinValue: Integer;
     //远光强度
+    FUserPasswd: string;
+    //用户密码
     FCOMPorts: array of TCOMItem;
     //串口对象
     procedure ShowLog(const nStr: string);
@@ -155,10 +161,13 @@ begin
   try
     nIni := TIniFile.Create(gPath + 'Config.ini');
     EditPort.Text := nIni.ReadString('Config', 'Port', '8000');
-
     Timer1.Enabled := nIni.ReadBool('Config', 'Enabled', False);
-    CheckAdjust.Checked := nIni.ReadBool('Config', 'CloseAdjust', False);
 
+    CheckAdjust.Checked := nIni.ReadBool('Config', 'CloseAdjust', False);
+    CheckCP.Checked := nIni.ReadBool('Config', 'CloseCP', False);
+    CheckGQ.Checked := nIni.ReadBool('Config', 'CloseGQ', False);
+
+    FUserPasswd := nIni.ReadString('Config', 'UserPassword', 'admin');
     FYGMinValue := nIni.ReadInteger('Config', 'YGMinValue', 5000);
     //远光强度下限
 
@@ -188,6 +197,9 @@ begin
     nIni := TIniFile.Create(gPath + 'Config.ini');
     nIni.WriteBool('Config', 'Enabled', CheckSrv.Checked);
     nIni.WriteBool('Config', 'CloseAdjust', CheckAdjust.Checked);
+
+    nIni.WriteBool('Config', 'CloseCP', CheckCP.Checked);
+    nIni.WriteBool('Config', 'CloseGQ', CheckGQ.Checked);
     SaveFormConfig(Self, nIni);
 
     if nIni.ReadString('Config', 'Port', '') = '' then
@@ -297,8 +309,14 @@ procedure TfFormMain.dxNavGroup2Expanded(Sender: TObject);
 var nStr: string;
 begin
   if ShowInputPWDBox('请输入管理员密码:', '', nStr) then
-       dxNavGroup2.OptionsExpansion.Expanded := nStr = 'admin'
+       dxNavGroup2.OptionsExpansion.Expanded := nStr = FUserPasswd
   else dxNavGroup2.OptionsExpansion.Expanded := False;
+end;
+
+procedure TfFormMain.CheckAdjustClick(Sender: TObject);
+begin
+  CheckCP.Enabled := not CheckAdjust.Checked;
+  CheckGQ.Enabled := not CheckAdjust.Checked;
 end;
 
 //------------------------------------------------------------------------------
@@ -430,15 +448,18 @@ begin
     with FCOMPorts[nItem] do
     begin
       FCOMObject.ReadStr(FBuffer, Count);
-      nStr := '';
       nInt := Length(FBuffer);
 
-      for nIdx:=1 to nInt do
-        nStr := nStr + IntToHex(Ord(FBuffer[nIdx]), 2) + ' ';
-      //十六进制
+      if (nInt > 1) or CheckDetail.Checked then
+      begin
+        nStr := '';
+        for nIdx:=1 to nInt do
+          nStr := nStr + IntToHex(Ord(FBuffer[nIdx]), 2) + ' ';
+        //十六进制
 
-      nStr := Format('端口:[ %s ] 数据:[ %s ]', [FItemName, nStr]);
-      WriteLog(nStr);
+        nStr := Format('端口:[ %s ] 数据:[ %s ]', [FItemName, nStr]);
+        WriteLog(nStr);
+      end;
     end; //读取数据
 
     nGroup := FindSameGroup(nItem);
@@ -470,10 +491,13 @@ var nStr: string;
 begin
   FCOMPorts[nGroup].FCOMObject.WriteStr(nData);
   //xxxxx
-  
-  nStr := '端口:[ %s ] 处理:[ 转发至 %s ]';
-  nStr := Format(nStr, [FCOMPorts[nItem].FItemName, FCOMPorts[nGroup].FItemName]);
-  WriteLog(nStr);
+
+  if CheckDetail.Checked then
+  begin
+    nStr := '端口:[ %s ] 处理:[ 转发至 %s ]';
+    nStr := Format(nStr, [FCOMPorts[nItem].FItemName, FCOMPorts[nGroup].FItemName]);
+    WriteLog(nStr);
+  end;
 
   {$IFDEF DEBUG}
   WriteLog('数据(10): ' + nData);
@@ -598,7 +622,7 @@ begin
   nDG := StrToFloat(nData.Fjh);
   //灯高
 
-  if (nPY <> 0) and (nDG <> 0) then
+  if (nPY <> 0) and (nDG <> 0) and (not CheckCP.Checked) then
   begin
     nVal := (nDG - nPY) / nDG;
     nVal := Float2Float(nVal, 100, True);
@@ -625,6 +649,7 @@ begin
       if nIdx < nInt then
         nSVal := nSVal + StringOfChar('0', nInt-nIdx);
       //xxxxx
+      
       nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
                                                Copy(nSVal, 1, nInt)]);
       WriteLog(nStr);
@@ -652,7 +677,7 @@ begin
   nDQ := StrToFloat(nData.Fyi);
   //远光强度
 
-  if (nDQ > FYGMinValue / 100) and (nDQ < 150) then
+  if (nDQ > FYGMinValue / 100) and (nDQ < 150) and (not CheckGQ.Checked) then
   begin
     nDQ := 150 + Random(50);
     nSVal := FloatToStr(nDQ);

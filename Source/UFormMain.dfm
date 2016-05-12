@@ -120,7 +120,7 @@ object fFormMain: TfFormMain
       OriginalHeight = 249
       object CheckAuto: TcxCheckBox
         Left = 20
-        Top = 69
+        Top = 70
         Caption = #24320#26426#33258#21160#21551#21160
         TabOrder = 0
         Transparent = True
@@ -135,10 +135,10 @@ object fFormMain: TfFormMain
         OnClick = CheckSrvClick
         Width = 110
       end
-      object CheckAdjust: TcxCheckBox
+      object CheckDetail: TcxCheckBox
         Left = 20
-        Top = 89
-        Caption = #20851#38381#25968#25454#26657#27491
+        Top = 90
+        Caption = #26174#31034#26126#32454#25351#20196
         TabOrder = 2
         Transparent = True
         Width = 110
@@ -154,6 +154,31 @@ object fFormMain: TfFormMain
         Top = 18
         Caption = #31471#21475':'
         Transparent = True
+      end
+      object CheckAdjust: TcxCheckBox
+        Left = 20
+        Top = 130
+        Caption = #20851#38381#25968#25454#26657#27491
+        TabOrder = 5
+        Transparent = True
+        OnClick = CheckAdjustClick
+        Width = 110
+      end
+      object CheckCP: TcxCheckBox
+        Left = 30
+        Top = 150
+        Caption = #19981#26657#27491#22402#30452#20559#31227
+        TabOrder = 6
+        Transparent = True
+        Width = 121
+      end
+      object CheckGQ: TcxCheckBox
+        Left = 30
+        Top = 170
+        Caption = #19981#26657#27491#36828#20809#24378#24230
+        TabOrder = 7
+        Transparent = True
+        Width = 121
       end
     end
   end
