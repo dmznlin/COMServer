@@ -87,6 +87,8 @@ type
     //远光强度
     FUserPasswd: string;
     //用户密码
+    FListA: TStrings;
+    //字符列表
     FCOMPorts: array of TCOMItem;
     //串口对象
     procedure ShowLog(const nStr: string);
@@ -115,7 +117,7 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, Registry, ULibFun, USysLoger, UFormInputbox;
+  IniFiles, Registry, ULibFun, UMgrCOMM, USysLoger, UFormInputbox;
 
 const
   cChar_Head          = Char($01);               //协议头
@@ -137,7 +139,8 @@ end;
 
 //------------------------------------------------------------------------------
 procedure TfFormMain.FormCreate(Sender: TObject);
-var nIni: TIniFile;
+var nStr: string;
+    nIni: TIniFile;
     nReg: TRegistry;
 begin
   Randomize;
@@ -147,14 +150,13 @@ begin
   gSysLoger := TSysLoger.Create(gPath + 'Logs\');
   gSysLoger.LogEvent := ShowLog;
 
-  FTrayIcon := TTrayIcon.Create(Self);
-  FTrayIcon.Hint := Application.Title;
-  FTrayIcon.Visible := True;
-
   CheckLoged.Checked := True;
   {$IFNDEF DEBUG}  
   dxNavGroup2.OptionsExpansion.Expanded := False;
   {$ENDIF}
+
+  SetLength(FCOMPorts, 0);
+  FListA := TStringList.Create;
 
   nIni := nil;
   nReg := nil;
@@ -171,6 +173,11 @@ begin
     FYGMinValue := nIni.ReadInteger('Config', 'YGMinValue', 5000);
     //远光强度下限
 
+    nStr := nIni.ReadString('Config', 'Title', '');
+    if nStr <> '' then
+      Caption := nStr;
+    //xxxxx
+
     nReg := TRegistry.Create;
     nReg.RootKey := HKEY_CURRENT_USER;
 
@@ -182,9 +189,17 @@ begin
     nReg.Free;
   end;
 
-  SetLength(FCOMPorts, 0);
   LoadCOMConfig;
   //读取串口配置
+
+  nStr := ChangeFileExt(Application.ExeName, '.ico');
+  if FileExists(nStr) then
+    Application.Icon.LoadFromFile(nStr);
+  //change app icon
+
+  FTrayIcon := TTrayIcon.Create(Self);
+  FTrayIcon.Hint := Caption;
+  FTrayIcon.Visible := True;
 end;
 
 procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -219,10 +234,24 @@ begin
     nIni.Free;
     nReg.Free;
   end;
+
+  FreeAndNil(FListA);
 end;
 
 procedure TfFormMain.Timer1Timer(Sender: TObject);
+var i: Integer;
 begin
+  GetValidCOMPort(FListA);
+  //enum port
+
+  for i:=Low(FCOMPorts) to High(FCOMPorts) do
+   with FCOMPorts[i] do
+    if FListA.IndexOf(FPortName) < 0 then
+    begin
+      WriteLog(Format('等待[ %s.%s ]端口接入系统.', [FItemName, FPortName]));
+      Exit;
+    end;
+
   Timer1.Enabled := False;
   CheckSrv.Checked := True;
 
@@ -381,7 +410,7 @@ begin
         FDataBits := FDataBits;
         FStopBits := FStopBits;
 
-        SyncMethod := smWindowSync;
+        SyncMethod := smNone;
         OnRxChar := OnCOMData;
       end;
 
@@ -437,6 +466,13 @@ var nStr: string;
     nIdx,nInt: Integer;
     nItem,nGroup: Integer;
 begin
+  if Count < 1 then
+  begin
+    Sleep(100);
+    Exit;
+  end else Sleep(1);
+  //线程延迟
+
   try
     nItem := FindCOMItem(Sender);
     if (nItem < 0) or (FCOMPorts[nItem].FCOMObject = nil) then

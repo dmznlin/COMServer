@@ -17,8 +17,8 @@ begin
   //创建互斥量
   if GetLastError = ERROR_ALREADY_EXISTS then
   begin
-    ReleaseMutex(gMutexHwnd);
-    CloseHandle(gMutexHwnd); Exit;
+    //ReleaseMutex(gMutexHwnd);
+    //CloseHandle(gMutexHwnd); Exit;
   end; //已有一个实例
   
   Application.Initialize;

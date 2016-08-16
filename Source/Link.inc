@@ -1,2 +1,2 @@
-{$DEFINE DEBUG}
+{.$DEFINE DEBUG}
 //╣Вйтдёй╫
