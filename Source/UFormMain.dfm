@@ -1,8 +1,8 @@
 object fFormMain: TfFormMain
   Left = 597
   Top = 349
-  Width = 728
-  Height = 524
+  Width = 875
+  Height = 653
   BorderIcons = [biSystemMenu, biMinimize]
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -16,34 +16,34 @@ object fFormMain: TfFormMain
   PixelsPerInch = 96
   TextHeight = 12
   object Bevel1: TBevel
-    Left = 151
+    Left = 165
     Top = 80
     Width = 2
-    Height = 398
+    Height = 527
     Align = alLeft
     Shape = bsSpacer
   end
   object MemoLog: TMemo
-    Left = 153
+    Left = 167
     Top = 80
-    Width = 567
-    Height = 398
+    Width = 700
+    Height = 527
     Align = alClient
     ScrollBars = ssBoth
     TabOrder = 0
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 478
-    Width = 720
+    Top = 607
+    Width = 867
     Height = 19
     Panels = <>
   end
   object dxNavBar1: TdxNavBar
     Left = 0
     Top = 80
-    Width = 151
-    Height = 398
+    Width = 165
+    Height = 527
     Align = alLeft
     ActiveGroupIndex = 0
     TabOrder = 2
@@ -63,13 +63,23 @@ object fFormMain: TfFormMain
       TopVisibleLinkIndex = 0
       OptionsGroupControl.ShowControl = True
       OptionsGroupControl.UseControl = True
+      OnCollapsed = dxNavGroup2Collapsed
       OnExpanded = dxNavGroup2Expanded
+      Links = <>
+    end
+    object dxNavGroup3: TdxNavBarGroup
+      Caption = #21442#25968
+      SelectedLinkIndex = -1
+      TopVisibleLinkIndex = 0
+      OptionsGroupControl.ShowControl = True
+      OptionsGroupControl.UseControl = True
+      OnExpanded = dxNavGroup2Collapsed
       Links = <>
     end
     object dxNavGroup1Control: TdxNavBarGroupControl
       Left = 0
       Top = 19
-      Width = 151
+      Width = 165
       Height = 65
       Caption = 'dxNavGroup1Control'
       TabOrder = 2
@@ -112,12 +122,12 @@ object fFormMain: TfFormMain
     object dxNavGroup2Control: TdxNavBarGroupControl
       Left = 0
       Top = 103
-      Width = 151
-      Height = 249
+      Width = 165
+      Height = 215
       TabOrder = 1
       UseStyle = True
       GroupIndex = 1
-      OriginalHeight = 249
+      OriginalHeight = 215
       object CheckAuto: TcxCheckBox
         Left = 20
         Top = 70
@@ -181,11 +191,36 @@ object fFormMain: TfFormMain
         Width = 121
       end
     end
+    object dxNavGroup3Control: TdxNavBarGroupControl
+      Left = 0
+      Top = 337
+      Width = 165
+      Height = 165
+      TabOrder = 6
+      UseStyle = True
+      GroupIndex = 2
+      OriginalHeight = 165
+      object ComboGQ: TcxComboBox
+        Left = 20
+        Top = 26
+        Properties.DropDownListStyle = lsFixedList
+        Properties.ItemHeight = 20
+        Properties.OnChange = ComboGQPropertiesChange
+        TabOrder = 0
+        Width = 112
+      end
+      object cxLabel2: TcxLabel
+        Left = 20
+        Top = 8
+        Caption = #36828#20809#24378#24230#19979#38480':'
+        Transparent = True
+      end
+    end
   end
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 720
+    Width = 867
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -195,7 +230,7 @@ object fFormMain: TfFormMain
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 499
+      Width = 646
       Height = 80
       Align = alClient
       AutoSize = True
@@ -868,7 +903,7 @@ object fFormMain: TfFormMain
       Stretch = True
     end
     object Image2: TImage
-      Left = 499
+      Left = 646
       Top = 0
       Width = 221
       Height = 80
@@ -1497,6 +1532,11 @@ object fFormMain: TfFormMain
     Enabled = False
     OnTimer = Timer1Timer
     Left = 194
+    Top = 86
+  end
+  object Timer2: TTimer
+    OnTimer = Timer2Timer
+    Left = 222
     Top = 86
   end
 end

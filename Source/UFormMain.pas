@@ -13,7 +13,7 @@ uses
   cxLookAndFeelPainters, cxContainer, cxEdit, IdContext, ExtCtrls,
   IdBaseComponent, IdComponent, IdCustomTCPServer, IdTCPServer, StdCtrls,
   cxTextEdit, cxLabel, cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase,
-  dxNavBar, ComCtrls;
+  dxNavBar, ComCtrls, cxMaskEdit, cxDropDownEdit;
 
 type
   TCOMItem = record
@@ -70,6 +70,11 @@ type
     CheckAdjust: TcxCheckBox;
     CheckCP: TcxCheckBox;
     CheckGQ: TcxCheckBox;
+    dxNavGroup3: TdxNavBarGroup;
+    dxNavGroup3Control: TdxNavBarGroupControl;
+    ComboGQ: TcxComboBox;
+    cxLabel2: TcxLabel;
+    Timer2: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -79,6 +84,9 @@ type
     procedure dxNavGroup2Expanded(Sender: TObject);
     procedure BtnRefreshClick(Sender: TObject);
     procedure CheckAdjustClick(Sender: TObject);
+    procedure dxNavGroup2Collapsed(Sender: TObject);
+    procedure ComboGQPropertiesChange(Sender: TObject);
+    procedure Timer2Timer(Sender: TObject);
   private
     { Private declarations }
     FTrayIcon: TTrayIcon;
@@ -89,6 +97,8 @@ type
     //用户密码
     FListA: TStrings;
     //字符列表
+    FDateLast: TDate;
+    //日期校验
     FCOMPorts: array of TCOMItem;
     //串口对象
     procedure ShowLog(const nStr: string);
@@ -117,7 +127,7 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, Registry, ULibFun, UMgrCOMM, USysLoger, UFormInputbox;
+  IniFiles, Registry, ULibFun, UMgrCOMM, ZnMD5, USysLoger, UFormInputbox;
 
 const
   cChar_Head          = Char($01);               //协议头
@@ -135,6 +145,76 @@ resourcestring
 procedure WriteLog(const nEvent: string);
 begin
   gSysLoger.AddLog(TfFormMain, '串口服务', nEvent);
+end;
+
+function GetVerify(const nInit,nDays: Integer): string;
+begin
+  Result := MD5Print(MD5String('QL_' + IntToStr(nInit) + IntToStr(nDays)));
+  Result := Copy(Result, Length(Result) - 5, 6);
+end;
+
+//Date: 2016-09-25
+//Desc: 验证系统是否过期
+function CheckSystemValid(const nIni: TIniFile = nil): Boolean;
+var nStr: string;
+    nCfg: TIniFile;
+    nInit,nLast,nNow: Integer;
+begin
+  if not Assigned(nIni) then
+       nCfg := TIniFile.Create(gPath + 'Config.ini')
+  else nCfg := nIni;
+
+  with nCfg do
+  try
+    nNow := Trunc(Date());
+    nInit := ReadInteger('Config', 'DateFirst', 0);
+    nLast := ReadInteger('Config', 'DateLast', 0);
+
+    nStr := ReadString('Config', 'DateVerify', '');
+    Result := nStr = GetVerify(nInit, nLast - nInit);
+
+    if not Result then
+    begin
+      nStr := ReadString('Config', '1', '');
+      if nStr <> '1' then Exit;
+      //初始化标记不存在
+
+      WriteInteger('Config', 'DateFirst', nNow);
+      //初始化日期
+
+      WriteInteger('Config', 'DateLast', nNow);
+      //最后活动日期
+
+      WriteString('Config', 'DateVerify', GetVerify(nNow, 0));
+      //日期保护
+
+      DeleteKey('Config', '1');
+      Result := True;
+      Exit;
+    end;
+
+    if nLast <> nNow then
+    begin
+      if nLast > nNow then
+      begin
+        Result := False;
+        Exit;
+      end; //日期向前调整,不合规
+
+      nLast := nNow;
+      nStr := GetVerify(nInit, nLast - nInit);
+    
+      WriteInteger('Config', 'DateLast', nLast);
+      WriteString('Config', 'DateVerify', nStr);
+    end; //日期调整
+
+    Result := (nLast - nInit) / 365 < 1;
+    //未满一年
+  finally
+    if not Assigned(nIni) then
+      nCfg.Free;
+    //xxxxx
+  end;
 end;
 
 //------------------------------------------------------------------------------
@@ -155,23 +235,48 @@ begin
   dxNavGroup2.OptionsExpansion.Expanded := False;
   {$ENDIF}
 
+  FDateLast := Date();
   SetLength(FCOMPorts, 0);
-  FListA := TStringList.Create;
+  FListA := TStringList.Create; 
 
   nIni := nil;
   nReg := nil;
   try
     nIni := TIniFile.Create(gPath + 'Config.ini');
+    if not CheckSystemValid(nIni) then
+    begin
+      dxNavGroup2.Visible := False;
+      Exit;
+    end;
+    
     EditPort.Text := nIni.ReadString('Config', 'Port', '8000');
     Timer1.Enabled := nIni.ReadBool('Config', 'Enabled', False);
-
     CheckAdjust.Checked := nIni.ReadBool('Config', 'CloseAdjust', False);
-    CheckCP.Checked := nIni.ReadBool('Config', 'CloseCP', False);
-    CheckGQ.Checked := nIni.ReadBool('Config', 'CloseGQ', False);
+    CheckCP.Enabled := nIni.ReadInteger('Config', 'CloseCPEnable', 1) <> 0;
 
+    if CheckCP.Enabled then
+         CheckCP.Checked := nIni.ReadBool('Config', 'CloseCP', False)
+    else CheckCP.Checked := False;
+
+    CheckGQ.Checked := nIni.ReadBool('Config', 'CloseGQ', False);
     FUserPasswd := nIni.ReadString('Config', 'UserPassword', 'admin');
     FYGMinValue := nIni.ReadInteger('Config', 'YGMinValue', 5000);
     //远光强度下限
+
+    with ComboGQ do
+    begin
+      nStr := nIni.ReadString('Config', 'YGMinValueList', '');
+      SplitStr(nStr, Properties.Items, 0, ',');
+      nStr := IntToStr(FYGMinValue);
+
+      if Properties.Items.IndexOf(nStr) < 0 then
+        Properties.Items.Add(nStr);
+      ComboGQ.Text := nStr;
+
+      if ItemIndex < 0 then
+        ItemIndex := 0;
+      //xxxxx
+    end;
 
     nStr := nIni.ReadString('Config', 'Title', '');
     if nStr <> '' then
@@ -262,6 +367,23 @@ begin
   {$ENDIF}
 end;
 
+procedure TfFormMain.Timer2Timer(Sender: TObject);
+begin
+  Timer2.Tag := Timer2.Tag + 1;
+  if Timer2.Tag < 20 then Exit;
+  Timer2.Tag := 0;
+
+  //if FDateLast = Date() then Exit;
+  FDateLast := Date();
+
+  if not CheckSystemValid(nil) then
+  begin
+    Timer2.Enabled := False;
+    CheckSrv.Checked := False;
+    dxNavGroup2.Visible := False;
+  end;
+end;
+
 procedure TfFormMain.CheckSrvClick(Sender: TObject);
 var nIdx,nErr: Integer;
 begin
@@ -340,6 +462,24 @@ begin
   if ShowInputPWDBox('请输入管理员密码:', '', nStr) then
        dxNavGroup2.OptionsExpansion.Expanded := nStr = FUserPasswd
   else dxNavGroup2.OptionsExpansion.Expanded := False;
+
+  with dxNavGroup3.OptionsExpansion do
+    Expanded := dxNavGroup2.OptionsExpansion.Expanded;
+  //xxxxx
+end;
+
+procedure TfFormMain.dxNavGroup2Collapsed(Sender: TObject);
+begin
+  with dxNavGroup3.OptionsExpansion do
+    Expanded := dxNavGroup2.OptionsExpansion.Expanded;
+  //xxxxx
+end;
+
+procedure TfFormMain.ComboGQPropertiesChange(Sender: TObject);
+begin
+  if ComboGQ.Focused then
+    FYGMinValue := StrToInt(ComboGQ.Text);
+  //xxxxx
 end;
 
 procedure TfFormMain.CheckAdjustClick(Sender: TObject);
