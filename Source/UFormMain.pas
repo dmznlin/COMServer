@@ -16,9 +16,13 @@ uses
   dxNavBar, ComCtrls, cxMaskEdit, cxDropDownEdit;
 
 type
+  TCOMType = (ctDD, ctWQ);
+  //类型: 大灯仪,尾气检测仪
+
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
+    FItemType: TCOMType;          //节点类型
     FPortName: string;            //端口名称
     FBaudRate: TBaudRate;         //波特率
     FDataBits: TDataBits;         //数据位
@@ -29,6 +33,15 @@ type
     FBuffer: string;              //数据缓存
     FData: string;                //协议数据
     FDataLast: Int64;             //接收时间
+
+    FAdj_Val_HC: Word;            //碳氢值(90<x<100,大于100矫正)
+    FAdj_Dir_HC: Boolean;         //增减方向
+    FAdj_Val_NO: Word;            //氧氮值(100<x<400,大于400矫正)
+    FAdj_Dir_NO: Boolean;
+    FAdj_Val_CO: Word;            //碳氧值(0.01<x<0.3,大于0.3矫正)
+    FAdj_Dir_CO: Boolean;
+    FAdj_Val_KR: Word;            //空燃比(0.97<x<1.03,大于1.03矫正)
+    FAdj_LastActive: Int64;       //上次触发
   end;
 
   PDataItem = ^TDataItem;
@@ -43,6 +56,24 @@ type
     Fjud    : array[0..4] of Char;    //近光上下偏移
     Fjp     : array[0..3] of Char;    //灯高比值
     Fend    : array[0..0] of Char;    //协议尾
+  end;
+
+  PWQData = ^TWQData;
+  TWQData = record
+    FHead   : array[0..2] of Char;    //协议头
+    FCO2    : array[0..1] of Char;    //co2
+    FCO     : array[0..1] of Char;    //co
+    FHC     : array[0..1] of Char;    //碳氢
+    FNO     : array[0..1] of Char;    //氮氧
+    FO2     : array[0..1] of Char;    //氧气
+    FSD     : array[0..1] of Char;    //湿度
+    FYW     : array[0..1] of Char;    //油温
+    FHJWD   : array[0..1] of Char;    //环境温度
+    FZS     : array[0..1] of Char;    //转速
+    FQLYL   : array[0..1] of Char;    //气路压力
+    FKRB    : array[0..1] of Char;    //空燃比
+    FHJYL   : array[0..1] of Char;    //环境压力
+    FCRC    : array[0..0] of Char;    //校验位
   end;
 
   TfFormMain = class(TForm)
@@ -112,9 +143,12 @@ type
     //检索数据
     procedure RedirectData(const nItem,nGroup: Integer; const nData: string);
     procedure ParseProtocol(const nItem,nGroup: Integer);
+    procedure ParseWQProtocol(const nItem,nGroup: Integer);
     procedure OnCOMData(Sender: TObject; Count: Integer);
     //数据处理
     function AdjustProtocol(const nData: PDataItem): Boolean;
+    function AdjustWQProtocol(const nItem,nGroup: Integer;
+      const nData: PWQData): Boolean;
     //校正数据
   public
     { Public declarations }
@@ -130,9 +164,21 @@ uses
   IniFiles, Registry, ULibFun, UMgrCOMM, ZnMD5, USysLoger, UFormInputbox;
 
 const
-  cChar_Head          = Char($01);               //协议头
-  cChar_End           = Char($FF);               //协议尾
-  cSizeData           = SizeOf(TDataItem);       //数据大小
+  cChar_Head       = Char($01);                       //协议头
+  cChar_End        = Char($FF);                       //协议尾
+  cSizeData        = SizeOf(TDataItem);               //数据大小
+
+  cChar_WQ_Head    = Char($06)+Char($60)+Char($1B);   //协议头
+  cChar_WQ_Head_L  = Length(cChar_WQ_Head);           //头大小
+  cSize_WQ_Data    = SizeOf(TWQData);                 //数据大小
+  cAdj_Interval    = 3 * 1000 * 60;                   //矫正数据有效期
+
+type
+  PSplitWord = ^TSplitWord;
+  TSplitWord = packed record
+    FLo: Byte;
+    FHi: Byte;
+  end;
 
 var
   gPath: string;                        //程序路径
@@ -145,6 +191,22 @@ resourcestring
 procedure WriteLog(const nEvent: string);
 begin
   gSysLoger.AddLog(TfFormMain, '串口服务', nEvent);
+end;
+
+//------------------------------------------------------------------------------
+function COMType2Str(const nType: TCOMType): string;
+begin
+  case nType of
+   ctDD: Result := '大灯仪';
+   ctWQ: Result := '尾气检测仪';
+  end;
+end;
+
+function Str2COMType(const nStr: string): TCOMType;
+begin
+  if nStr = '1' then
+       Result := ctWQ
+  else Result := ctDD;
 end;
 
 function GetVerify(const nInit,nDays: Integer): string;
@@ -447,6 +509,7 @@ begin
     Add('设备: ' + IntToStr(nIdx+1));
     Add('|--- 名称: ' + FItemName);
     Add('|--- 分组: ' + FItemGroup);
+    Add('|--- 类型: ' + COMType2Str(FItemType));
     Add('|--- 端口: ' + FPortName);
     Add('|--- 速率: ' + BaudRateToStr(FBaudRate));
     Add('|--- 数位: ' + DataBitsToStr(FDataBits));
@@ -524,6 +587,8 @@ begin
     begin
       FItemName  := ReadString(nList[nIdx], 'Name', '');
       FItemGroup := ReadString(nList[nIdx], 'Group', '');
+      FItemType := Str2COMType(ReadString(nList[nIdx], 'Type', '0'));
+
       FPortName  := ReadString(nList[nIdx], 'PortName', '');
       FBaudRate  := StrToBaudRate(ReadString(nList[nIdx], 'BaudRate', '9600'));
       FDataBits  := StrToDataBits(ReadString(nList[nIdx], 'DataBits', '8'));
@@ -533,6 +598,7 @@ begin
       FData := '';
       FDataLast := 0;
       FCOMObject := nil;
+      FAdj_LastActive := 0;
 
       if ReadInteger(nList[nIdx], 'Enable', 0) <> 1 then
       begin
@@ -647,8 +713,12 @@ begin
     end;
 
     if CheckAdjust.Checked then
-         RedirectData(nItem, nGroup, FCOMPorts[nItem].FBuffer)  //直接转发
-    else ParseProtocol(nItem, nGroup);                          //分析协议
+      RedirectData(nItem, nGroup, FCOMPorts[nItem].FBuffer) else  //直接转发
+    //xxxxx
+
+    if FCOMPorts[nItem].FItemType = ctWQ then
+         ParseWQProtocol(nItem, nGroup)                           //尾气数据
+    else ParseProtocol(nItem, nGroup);                            //分析协议
   except
     on E: Exception do
     begin
@@ -663,7 +733,7 @@ end;
 procedure TfFormMain.RedirectData(const nItem,nGroup: Integer;
  const nData: string);
 var nStr: string;
-    nIdx: Integer;
+    {$IFDEF DEBUG}nIdx: Integer;{$ENDIF}
 begin
   FCOMPorts[nGroup].FCOMObject.WriteStr(nData);
   //xxxxx
@@ -884,6 +954,258 @@ begin
           '强度:[ ' + nData.Fyi + ']';
   WriteLog(nStr);
   {.$ENDIF}
+end;
+
+//------------------------------------------------------------------------------
+//Date: 2016-10-08
+//Parm: 数据
+//Desc: 对nStr进行和校验
+function MakeCRC(const nStr: string; const nS,nE: Integer): Char;
+var nIdx: Integer;
+    nRes: Byte;
+begin
+  nRes := 0;
+  for nIdx:=nS to nE do
+    nRes := nRes + Ord(nStr[nIdx]);
+  //xxxxx
+
+  nRes := nRes xor $FF + 1;
+  Result := Char(nRes);
+end;
+
+//Date: 2016-10-08
+//Parm: 源端口;转发端口
+//Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+procedure TfFormMain.ParseWQProtocol(const nItem, nGroup: Integer);
+var nS,nE,nPos,nIdx: Integer;
+    nData: TWQData;
+    nBuf: array[0..cSize_WQ_Data-1] of Char;
+begin
+  with FCOMPorts[nItem] do
+  begin
+    nE := Length(FData);
+    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      nE := 0;
+    end; //超时数据直接转发
+
+    if nE > cSize_WQ_Data then
+    begin
+      while nE > 0 do
+      begin
+        nPos := nE;
+        Dec(nE);
+
+        if Copy(FData, nPos, cChar_WQ_Head_L) = cChar_WQ_Head then Break;
+        //last header
+      end;
+
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
+        System.Delete(FData, 1, nE);
+      end;
+    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
+
+    //--------------------------------------------------------------------------
+    nS := Pos(cChar_WQ_Head, FBuffer);
+    if (nS < 1) and (FData = '') then
+    begin
+      RedirectData(nItem, nGroup, FBuffer);
+      Exit;
+    end; //非协议数据直接转发
+
+    FDataLast := GetTickCount;
+    FData :=  FData + FBuffer;
+    //保存数据待分析
+
+    nS := Pos(cChar_WQ_Head, FData);
+    nPos := Length(FData);
+    if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
+
+    nE := nS + cSize_WQ_Data - 1;
+    FBuffer := Copy(FData, nS, cSize_WQ_Data);
+
+    for nIdx:=Low(nBuf) to High(nBuf) do
+      nBuf[nIdx] := FBuffer[nIdx + 1];
+    Move(nBuf, nData, cSize_WQ_Data);
+    //复制到协议包,准备分析
+
+    if (nData.FCRC = MakeCRC(FBuffer, nS, nE-1)) and
+       (AdjustWQProtocol(nItem, nGroup, @nData)) then
+    begin
+      SetString(FBuffer, PChar(@nData.FHead), cSize_WQ_Data);
+      FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
+      FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+    end;
+
+    RedirectData(nItem, nGroup, FData);
+    FData := '';
+    //发送数据
+  end;
+end;
+
+function Item2Word(const nItem: array of Char): Word;
+var nWord: TSplitWord;
+begin
+  nWord.FHi := Ord(nItem[0]);
+  nWord.FLo := Ord(nItem[1]);
+  Result := Word(nWord);
+end;
+
+procedure Word2Item(var nItem: array of Char; const nWord: Word);
+var nW: TSplitWord;
+begin
+  nW := TSplitWord(nWord);
+  nItem[0] := Char(nW.FHi);
+  nItem[1] := Char(nW.FLo);
+end;
+
+//Date: 2016-10-08
+//Parm: 源端口;转发端口;协议数据
+//Desc: 分析协议数据,有必要时校正
+function TfFormMain.AdjustWQProtocol(const nItem,nGroup: Integer;
+  const nData: PWQData): Boolean;
+var nStr: string;
+    nInt: Integer;
+begin
+  Result := False;
+  with FCOMPorts[nItem] do
+  begin
+    nInt := Item2Word(nData.FKRB);
+    if nInt >= 1030 then //空燃比: 0.97<x<1.03
+    begin
+      FAdj_Val_KR := 971 + Random(60); //1030 - 970 = 60
+      Word2Item(nData.FKRB, FAdj_Val_KR);
+
+      nStr := Format('空燃比:[ %d -> %d ]', [nInt, FAdj_Val_KR]);
+      WriteLog(nStr);
+      Result := True;
+    end;
+
+    nInt := Item2Word(nData.FHC);
+    if nInt >= 100 then //碳氢: 90<x<100
+    begin
+      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      begin
+        FAdj_Val_HC := 90 + Random(10);
+        if FAdj_Val_HC < 95 then
+             FAdj_Dir_HC := True
+        else FAdj_Dir_HC := False;
+      end;
+
+      if FAdj_Dir_HC then
+           FAdj_Val_HC := FAdj_Val_HC + Random(3)
+      else FAdj_Val_HC := FAdj_Val_HC - Random(3);
+
+      if FAdj_Val_HC >= 100 then
+      begin
+        FAdj_Val_HC := 99;
+        FAdj_Dir_HC := False;
+      end;
+
+      if FAdj_Val_HC <= 90 then
+      begin
+        FAdj_Val_HC := 91;
+        FAdj_Dir_HC := False;
+      end;
+
+      Word2Item(nData.FHC, FAdj_Val_HC);
+      Result := True;
+
+      nStr := Format('碳氢(HC):[ %d -> %d ]', [nInt, FAdj_Val_HC]);
+      WriteLog(nStr);
+    end;
+
+    nInt := Item2Word(nData.FCO);
+    if nInt >= 30 then //碳氧: 1<x<30
+    begin
+      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      begin
+        FAdj_Val_CO := 1 + Random(29);
+        if FAdj_Val_HC < 15 then
+             FAdj_Dir_CO := True
+        else FAdj_Dir_CO := False;
+      end;
+
+      if FAdj_Dir_CO then
+           FAdj_Val_CO := FAdj_Val_CO + Random(5)
+      else FAdj_Val_CO := FAdj_Val_CO - Random(5);
+
+      if FAdj_Val_CO >= 30 then
+      begin
+        FAdj_Val_CO := 29;
+        FAdj_Dir_CO := False;
+      end;
+
+      if FAdj_Val_CO <= 1 then
+      begin
+        FAdj_Val_CO := 2;
+        FAdj_Dir_CO := True;
+      end;
+
+      Word2Item(nData.FCO, FAdj_Val_CO);
+      Result := True;
+
+      nStr := Format('碳氧(CO):[ %d -> %d ]', [nInt, FAdj_Val_CO]);
+      WriteLog(nStr);
+    end;
+
+    nInt := Item2Word(nData.FNO);
+    if nInt >= 30 then //氮氧:100<x<400
+    begin
+      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      begin
+        FAdj_Val_NO:= 100 + Random(300);
+        FAdj_Dir_NO := not FAdj_Dir_HC;
+      end;
+
+      if FAdj_Dir_NO then
+           FAdj_Val_NO := FAdj_Val_NO + Random(20)
+      else FAdj_Val_NO := FAdj_Val_NO - Random(20);
+
+      if FAdj_Val_NO >= 400 then
+      begin
+        FAdj_Val_NO := 399;
+        FAdj_Dir_NO := False;
+      end;
+
+      if FAdj_Val_NO <= 100 then
+      begin
+        FAdj_Val_NO := 101;
+        FAdj_Dir_NO := True;
+      end;
+
+      Word2Item(nData.FNO, FAdj_Val_NO);
+      Result := True;
+
+      nStr := Format('氮氧(NO):[ %d -> %d ]', [nInt, FAdj_Val_NO]);
+      WriteLog(nStr);
+    end;
+
+    FAdj_LastActive := GetTickCount;
+    //upate time stamp
+  end;
+
+  {$IFDEF DEBUG}
+  nStr := 'CO2:[ ' + IntToStr(Item2Word(nData.FCO2)) + ' ] ' +
+          'CO:[ ' + IntToStr(Item2Word(nData.FCO)) + ' ] ' +
+          'HC:[ ' + IntToStr(Item2Word(nData.FHC)) + ' ] ' +
+          'NO:[ ' + IntToStr(Item2Word(nData.FNO)) + ' ] ' +
+          'O2:[ ' + IntToStr(Item2Word(nData.FO2)) + ' ] ' +
+          '湿度:[ ' + IntToStr(Item2Word(nData.FSD)) + ' ] ' +
+          '油温:[ ' + IntToStr(Item2Word(nData.FYW)) + ' ]';
+  WriteLog(nStr);
+
+  nStr := '转速:[ ' + IntToStr(Item2Word(nData.FZS)) + ' ] ' +
+          '空燃比:[ ' + IntToStr(Item2Word(nData.FKRB)) + ' ] ' +
+          '气路压力:[ ' + IntToStr(Item2Word(nData.FQLYL)) + ' ] ' +
+          '环境压力:[ ' + IntToStr(Item2Word(nData.FHJYL)) + ' ] ' +
+          '环境温度:[ ' + IntToStr(Item2Word(nData.FHJWD)) + ' ]';
+  WriteLog(nStr);
+  {$ENDIF}
 end;
 
 end.

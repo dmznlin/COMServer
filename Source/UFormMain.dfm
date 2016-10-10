@@ -1,6 +1,6 @@
 object fFormMain: TfFormMain
-  Left = 597
-  Top = 349
+  Left = 682
+  Top = 359
   Width = 875
   Height = 653
   BorderIcons = [biSystemMenu, biMinimize]
@@ -196,7 +196,7 @@ object fFormMain: TfFormMain
       Top = 337
       Width = 165
       Height = 165
-      TabOrder = 6
+      TabOrder = 3
       UseStyle = True
       GroupIndex = 2
       OriginalHeight = 165
