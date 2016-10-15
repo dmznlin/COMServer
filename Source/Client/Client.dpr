@@ -2,12 +2,14 @@ program Client;
 
 uses
   Forms,
-  UFormMain in 'UFormMain.pas' {fFormMain};
+  UDataModule in 'UDataModule.pas' {FDM: TDataModule},
+  UFormMain in 'UFormMain.pas' {fFormClient};
 
 {$R *.res}
 
 begin
   Application.Initialize;
-  Application.CreateForm(TfFormMain, fFormMain);
+  Application.CreateForm(TFDM, FDM);
+  Application.CreateForm(TfFormClient, fFormClient);
   Application.Run;
 end.
