@@ -9,11 +9,11 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  CPort, CPortTypes, UTrayIcon, cxGraphics, cxControls, cxLookAndFeels,
-  cxLookAndFeelPainters, cxContainer, cxEdit, IdContext, ExtCtrls,
-  IdBaseComponent, IdComponent, IdCustomTCPServer, IdTCPServer, StdCtrls,
-  cxTextEdit, cxLabel, cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase,
-  dxNavBar, ComCtrls, cxMaskEdit, cxDropDownEdit;
+  CPort, CPortTypes, UTrayIcon, UDataModule, cxGraphics, cxControls,
+  cxLookAndFeels, cxLookAndFeelPainters, cxContainer, cxEdit, IdContext,
+  StdCtrls, ExtCtrls, IdBaseComponent, IdComponent, IdCustomTCPServer,
+  IdTCPServer, cxMaskEdit, cxDropDownEdit, cxTextEdit, cxLabel, cxCheckBox,
+  dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls;
 
 type
   TCOMType = (ctDD, ctWQ);
@@ -23,6 +23,7 @@ type
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
     FItemType: TCOMType;          //节点类型
+    FLineNO: Integer;             //检测线号
     FPortName: string;            //端口名称
     FBaudRate: TBaudRate;         //波特率
     FDataBits: TDataBits;         //数据位
@@ -182,14 +183,6 @@ type
     FHi: Byte;
   end;
 
-var
-  gPath: string;                        //程序路径
-
-resourcestring
-  sHint               = '提示';
-  sConfig             = 'Config.Ini';
-  sAutoStartKey       = 'COMServer';
-
 procedure WriteLog(const nEvent: string);
 begin
   gSysLoger.AddLog(TfFormMain, '串口服务', nEvent);
@@ -200,7 +193,7 @@ function COMType2Str(const nType: TCOMType): string;
 begin
   case nType of
    ctDD: Result := '大灯仪';
-   ctWQ: Result := '尾气检测仪';
+   ctWQ: Result := '尾气检测';
   end;
 end;
 
@@ -358,9 +351,6 @@ begin
     nReg.Free;
   end;
 
-  LoadCOMConfig;
-  //读取串口配置
-
   nStr := ChangeFileExt(Application.ExeName, '.ico');
   if FileExists(nStr) then
     Application.Icon.LoadFromFile(nStr);
@@ -369,6 +359,12 @@ begin
   FTrayIcon := TTrayIcon.Create(Self);
   FTrayIcon.Hint := Caption;
   FTrayIcon.Visible := True;
+
+  if FDM.LoadDBConfig then //读取数据库配置
+  begin
+    LoadCOMConfig;
+    //读取串口配置
+  end;
 end;
 
 procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -512,6 +508,7 @@ begin
     Add('|--- 名称: ' + FItemName);
     Add('|--- 分组: ' + FItemGroup);
     Add('|--- 类型: ' + COMType2Str(FItemType));
+    Add('|--- 线号: ' + IntToStr(FLineNO));
     Add('|--- 端口: ' + FPortName);
     Add('|--- 速率: ' + BaudRateToStr(FBaudRate));
     Add('|--- 数位: ' + DataBitsToStr(FDataBits));
@@ -590,6 +587,7 @@ begin
       FItemName  := ReadString(nList[nIdx], 'Name', '');
       FItemGroup := ReadString(nList[nIdx], 'Group', '');
       FItemType := Str2COMType(ReadString(nList[nIdx], 'Type', '0'));
+      FLineNO := ReadInteger(nList[nIdx], 'LineNo', 0);
 
       FPortName  := ReadString(nList[nIdx], 'PortName', '');
       FBaudRate  := StrToBaudRate(ReadString(nList[nIdx], 'BaudRate', '9600'));
@@ -1017,6 +1015,9 @@ begin
     begin
       FData := '';
       FAdj_LastActive := 0;
+
+      FDM.LoadTruckList;
+      //载入待检车辆
     end; //调零指令,重置数据
 
     if (nS < 1) and (FData = '') then
@@ -1033,20 +1034,23 @@ begin
     nPos := Length(FData);
     if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
 
-    nE := nS + cSize_WQ_Data - 1;
-    FBuffer := Copy(FData, nS, cSize_WQ_Data);
-
-    for nIdx:=Low(nBuf) to High(nBuf) do
-      nBuf[nIdx] := FBuffer[nIdx + 1];
-    Move(nBuf, nData, cSize_WQ_Data);
-    //复制到协议包,准备分析
-
-    //if (nData.FCRC = MakeCRC(FBuffer, nS, nE-1)) then
-    if AdjustWQProtocol(nItem, nGroup, @nData) then
+    if FDM.VIPTruckInLine(FLineNO) then //VIP车辆参与校正
     begin
-      SetString(FBuffer, PChar(@nData.FHead), cSize_WQ_Data);
-      FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
-      FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+      nE := nS + cSize_WQ_Data - 1;
+      FBuffer := Copy(FData, nS, cSize_WQ_Data);
+
+      for nIdx:=Low(nBuf) to High(nBuf) do
+        nBuf[nIdx] := FBuffer[nIdx + 1];
+      Move(nBuf, nData, cSize_WQ_Data);
+      //复制到协议包,准备分析
+
+      //if (nData.FCRC = MakeCRC(FBuffer, nS, nE-1)) then
+      if AdjustWQProtocol(nItem, nGroup, @nData) then
+      begin
+        SetString(FBuffer, PChar(@nData.FHead), cSize_WQ_Data);
+        FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
+        FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+      end;
     end;
 
     RedirectData(nItem, nGroup, FData);
@@ -1162,8 +1166,8 @@ begin
       end;
 
       if FAdj_Dir_CO then
-           FAdj_Val_CO := FAdj_Val_CO + Random(5)
-      else FAdj_Val_CO := FAdj_Val_CO - Random(5);
+           FAdj_Val_CO := FAdj_Val_CO + Random(3)
+      else FAdj_Val_CO := FAdj_Val_CO - Random(3);
 
       if FAdj_Val_CO >= 30 then
       begin

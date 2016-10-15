@@ -105,11 +105,12 @@ implementation
 {$R *.dfm}
 
 uses
-  ULibFun, USysDB, USysLoger, UBase64, UcxChinese, USysGrid,
+  ULibFun, USysDB, USysLoger, UBase64, UcxChinese, USysGrid, USysMAC,
   UFormInputbox, UFormMemo;
 
 //------------------------------------------------------------------------------
 procedure TfFormClient.FormCreate(Sender: TObject);
+var nStr: string;
 begin
   Randomize;
   gPath := ExtractFilePath(Application.ExeName);
@@ -117,7 +118,9 @@ begin
 
   gSysLoger := TSysLoger.Create(gPath + 'Logs\');
   wPage.ActivePage := Sheet2;
+
   LoadFormConfig;
+  GetLocalIPConfig(gLocalName, nStr);
 end;
 
 procedure TfFormClient.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -306,8 +309,8 @@ begin
   begin
     if FLoadValidTruck then
     begin
-      nStr := 'update %s set t_valid=1 where id=%s';
-      nStr := Format(nStr, [sTable_Truck, GetVal(nIdx, 'id')]);
+      nStr := 'update %s set t_valid=1,t_user=''%s'',t_time=now() where id=%s';
+      nStr := Format(nStr, [sTable_Truck, gLocalName, GetVal(nIdx, 'id')]);
     end else
     begin
       nStr := 'delete from %s where id=%s';

@@ -86,7 +86,7 @@ ResourceString
   sFlag_Decimal       = 'D';                         //小数
   
   {*数据表*}
-  sTable_Truck        = 'truck';                     //车辆管理
+  sTable_Truck        = 'aa_td_runo';                //车辆管理
   sTable_WQTruck      = 'aa_td_run';                 //尾气待检
 
 implementation

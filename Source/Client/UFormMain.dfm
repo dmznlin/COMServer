@@ -284,7 +284,7 @@ object fFormClient: TfFormClient
           LookAndFeel.SkinName = ''
         end
         object BtnDel: TcxButton
-          Left = 238
+          Left = 10
           Top = 22
           Width = 65
           Height = 22
@@ -295,7 +295,7 @@ object fFormClient: TfFormClient
           LookAndFeel.SkinName = ''
         end
         object BtnFreshVIP: TcxButton
-          Left = 78
+          Left = 238
           Top = 22
           Width = 65
           Height = 22
@@ -306,11 +306,11 @@ object fFormClient: TfFormClient
           LookAndFeel.SkinName = ''
         end
         object BtnHasDel: TcxButton
-          Left = 10
+          Left = 78
           Top = 22
           Width = 65
           Height = 22
-          Caption = #24050#21024#38500
+          Caption = #26597#35810#21024#38500
           TabOrder = 3
           OnClick = BtnHasDelClick
           LookAndFeel.NativeStyle = False

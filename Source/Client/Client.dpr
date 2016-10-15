@@ -1,6 +1,7 @@
 program Client;
 
 uses
+  JclAppInst,
   Forms,
   UDataModule in 'UDataModule.pas' {FDM: TDataModule},
   UFormMain in 'UFormMain.pas' {fFormClient};
@@ -8,6 +9,7 @@ uses
 {$R *.res}
 
 begin
+  JclAppInstances.CheckSingleInstance;
   Application.Initialize;
   Application.CreateForm(TFDM, FDM);
   Application.CreateForm(TfFormClient, fFormClient);

@@ -1,13 +1,26 @@
 object FDM: TFDM
   OldCreateOrder = False
-  OnCreate = DataModuleCreate
-  OnDestroy = DataModuleDestroy
   Left = 344
   Top = 157
   Height = 222
   Width = 346
+  object edtStyle: TcxDefaultEditStyleController
+    Style.Edges = [bBottom]
+    Style.Font.Charset = GB2312_CHARSET
+    Style.Font.Color = clBlack
+    Style.Font.Height = -12
+    Style.Font.Name = #23435#20307
+    Style.Font.Style = []
+    Style.TextColor = 4227072
+    Style.IsFontAssigned = True
+    StyleDisabled.Color = clWindow
+    StyleFocused.Color = clInfoBk
+    Left = 20
+    Top = 128
+    PixelsPerInch = 96
+  end
   object dxLayout1: TdxLayoutLookAndFeelList
-    Left = 21
+    Left = 72
     Top = 126
     object dxLayoutWeb1: TdxLayoutWebLookAndFeel
       GroupOptions.CaptionOptions.Color = clSkyBlue
@@ -25,12 +38,12 @@ object FDM: TFDM
     end
   end
   object XPM1: TXPManifest
-    Left = 121
+    Left = 172
     Top = 128
   end
   object cxLoF1: TcxLookAndFeelController
     Kind = lfOffice11
-    Left = 75
+    Left = 126
     Top = 126
   end
   object DBConn1: TUniConnection
