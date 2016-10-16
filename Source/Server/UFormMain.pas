@@ -309,7 +309,9 @@ begin
     EditPort.Text := nIni.ReadString('Config', 'Port', '8000');
     Timer1.Enabled := nIni.ReadBool('Config', 'Enabled', False);
     CheckAdjust.Checked := nIni.ReadBool('Config', 'CloseAdjust', False);
-    CheckCP.Enabled := nIni.ReadInteger('Config', 'CloseCPEnable', 1) <> 0;
+
+    CheckCP.Tag := nIni.ReadInteger('Config', 'CloseCPEnable', 1);
+    CheckCP.Enabled := CheckCP.Tag <> 0;
 
     if CheckCP.Enabled then
          CheckCP.Checked := nIni.ReadBool('Config', 'CloseCP', False)
@@ -546,7 +548,7 @@ end;
 
 procedure TfFormMain.CheckAdjustClick(Sender: TObject);
 begin
-  CheckCP.Enabled := not CheckAdjust.Checked;
+  CheckCP.Enabled := (not CheckAdjust.Checked) and (CheckCP.Tag <> 0);
   CheckGQ.Enabled := not CheckAdjust.Checked;
 end;
 
