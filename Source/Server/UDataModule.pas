@@ -101,8 +101,9 @@ begin
     Database := ReadString('DB', 'DBName', 'detect');
     Username := ReadString('DB', 'User', '');
     Password := DecodeBase64(ReadString('DB', 'Password', ''));
-    
-    Connect;
+
+    if ReadInteger('DB', 'DBEnable', 1) <> 0 then
+      Connect;
     Result := True;
   except
     on E:Exception do
