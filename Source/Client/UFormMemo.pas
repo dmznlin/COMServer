@@ -88,7 +88,7 @@ begin
   for nIdx:=FTrucks.Count - 1 downto 0 do
   begin
     FTrucks[nIdx] := Trim(FTrucks[nIdx]);
-    if FTrucks[nIdx] = '' then
+    if (FTrucks[nIdx] = '') or (Pos(':', FTrucks[nIdx]) > 0) then
       FTrucks.Delete(nIdx);
     //«Â¿Ìø’––
   end;

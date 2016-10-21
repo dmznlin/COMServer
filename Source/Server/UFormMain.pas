@@ -37,11 +37,15 @@ type
 
     FAdj_Val_HC: Word;            //碳氢值(80<x<100,大于100校正)
     FAdj_Dir_HC: Boolean;         //增减方向
+    FAdj_Kpt_HC: Word;            //保持次数
     FAdj_Val_NO: Word;            //氧氮值(200<x<600,大于400校正)
     FAdj_Dir_NO: Boolean;
+    FAdj_Kpt_NO: Word;
     FAdj_Val_CO: Word;            //碳氧值(0.01<x<0.3,大于0.3校正)
     FAdj_Dir_CO: Boolean;
+    FAdj_Kpt_CO: Word;
     FAdj_Val_KR: Word;            //空燃比(0.97<x<1.03,大于1.03校正)
+    FAdj_Val_BS: Word;            //空燃比基数
     FAdj_LastActive: Int64;       //上次触发
   end;
 
@@ -172,6 +176,8 @@ const
   cChar_WQ_Head    = Char($06)+Char($60)+Char($1B);   //协议头
   cChar_WQ_Head_L  = Length(cChar_WQ_Head);           //头大小
   cSize_WQ_Data    = SizeOf(TWQData);                 //数据大小
+
+  cAdj_KeepLong    = 6;                              //数据保持最大次数
   cAdj_Interval    = 1 * 1000 * 60;                   //校正数据有效期
 
   sCMD_WQ_TL      = Char($02) + Char($67) + Char($03) + Char($94); //调零指令
@@ -1107,14 +1113,18 @@ begin
 
   with FCOMPorts[nItem] do
   begin
-    nInt := Item2Word(nData.FCO2);
-    if nInt < 1000 then Exit;
+    nInt := Item2Word(nData.FCO) + Item2Word(nData.FCO2);
+    if nInt < 600 then Exit;
     //co2低浓度标识未开始
 
     nInt := Item2Word(nData.FKRB); //空燃比: 0.97<x<1.03
     if (nInt >= 1030) or ((nInt <= 970) and (nInt >= 700)) then 
     begin
-      FAdj_Val_KR := 971 + Random(60); //1030 - 970 = 60
+      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+        FAdj_Val_BS := 971 + Random(50); //1030 - 970 = 60
+      //base value
+
+      FAdj_Val_KR := FAdj_Val_BS + Random(10);
       Word2Item(nData.FKRB, FAdj_Val_KR);
 
       nStr := Format('空燃比:[ %d -> %d ]', [nInt, FAdj_Val_KR]);
@@ -1127,15 +1137,23 @@ begin
     begin
       if GetTickCount - FAdj_LastActive >= cAdj_Interval then
       begin
+        FAdj_Kpt_HC := Random(cAdj_KeepLong);
         FAdj_Val_HC := 80 + Random(20);
+
         if FAdj_Val_HC < 90 then
              FAdj_Dir_HC := True
         else FAdj_Dir_HC := False;
       end;
 
-      if FAdj_Dir_HC then
-           FAdj_Val_HC := FAdj_Val_HC + Random(3)
-      else FAdj_Val_HC := FAdj_Val_HC - Random(3);
+      if FAdj_Kpt_HC < 1 then
+      begin
+        FAdj_Kpt_HC := Random(cAdj_KeepLong);
+        //xxxxx
+        
+        if FAdj_Dir_HC then
+             FAdj_Val_HC := FAdj_Val_HC + Random(3)
+        else FAdj_Val_HC := FAdj_Val_HC - Random(3);
+      end else Dec(FAdj_Kpt_HC);
 
       if FAdj_Val_HC >= 100 then
       begin
@@ -1161,15 +1179,23 @@ begin
     begin
       if GetTickCount - FAdj_LastActive >= cAdj_Interval then
       begin
+        FAdj_Kpt_CO := Random(cAdj_KeepLong);
         FAdj_Val_CO := 1 + Random(29);
+        
         if FAdj_Val_CO < 15 then
              FAdj_Dir_CO := True
         else FAdj_Dir_CO := False;
       end;
 
-      if FAdj_Dir_CO then
-           FAdj_Val_CO := FAdj_Val_CO + Random(3)
-      else FAdj_Val_CO := FAdj_Val_CO - Random(3);
+      if FAdj_Kpt_CO < 1 then
+      begin
+        FAdj_Kpt_CO := Random(cAdj_KeepLong);
+        //xxxxx
+        
+        if FAdj_Dir_CO then
+             FAdj_Val_CO := FAdj_Val_CO + Random(3)
+        else FAdj_Val_CO := FAdj_Val_CO - Random(3);
+      end else Dec(FAdj_Kpt_CO);
 
       if FAdj_Val_CO >= 30 then
       begin
@@ -1195,13 +1221,20 @@ begin
     begin
       if GetTickCount - FAdj_LastActive >= cAdj_Interval then
       begin
-        FAdj_Val_NO:= 200 + Random(400);
+        FAdj_Kpt_NO := Random(cAdj_KeepLong);
+        FAdj_Val_NO := 200 + Random(400);
         FAdj_Dir_NO := not FAdj_Dir_HC;
       end;
 
-      if FAdj_Dir_NO then
-           FAdj_Val_NO := FAdj_Val_NO + Random(20)
-      else FAdj_Val_NO := FAdj_Val_NO - Random(20);
+      if FAdj_Kpt_NO < 1 then
+      begin
+        FAdj_Kpt_NO := Random(cAdj_KeepLong);
+        //xxxxx
+
+        if FAdj_Dir_NO then
+             FAdj_Val_NO := FAdj_Val_NO + Random(20)
+        else FAdj_Val_NO := FAdj_Val_NO - Random(20);
+      end else Dec(FAdj_Kpt_NO);
 
       if FAdj_Val_NO >= 600 then
       begin
