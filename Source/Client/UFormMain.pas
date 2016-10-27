@@ -14,7 +14,7 @@ uses
   StdCtrls, cxButtons, dxLayoutControl, cxTextEdit, cxGridLevel, cxClasses,
   cxGridCustomView, cxGridCustomTableView, cxGridTableView,
   cxGridDBTableView, cxGrid, MemDS, DBAccess, Uni, cxNavigator, ExtCtrls,
-  cxPC, dxStatusBar, cxGroupBox;
+  cxPC, dxStatusBar, cxGroupBox, cxMaskEdit, cxButtonEdit;
 
 type
   TfFormClient = class(TForm)
@@ -69,6 +69,8 @@ type
     cxView2Column3: TcxGridDBColumn;
     cxView2Column4: TcxGridDBColumn;
     BtnHasDel: TcxButton;
+    cxLabel2: TcxLabel;
+    EditFind: TcxButtonEdit;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;
@@ -79,6 +81,9 @@ type
     procedure BtnHasDelClick(Sender: TObject);
     procedure BtnDelClick(Sender: TObject);
     procedure BtnAddClick(Sender: TObject);
+    procedure EditFindPropertiesButtonClick(Sender: TObject;
+      AButtonIndex: Integer);
+    procedure EditFindKeyPress(Sender: TObject; var Key: Char);
   private
     { Private declarations }
     FUserPasswd: string;
@@ -89,7 +94,7 @@ type
     procedure LoadDBConfig(const nRead: Boolean; const nIni: TIniFile = nil);
     //读取配置
     procedure RefreshTruckList;
-    procedure RefreshVIPTruckList(const nHasDel: Boolean = False);
+    procedure RefreshVIPTruckList(nHasDel: Boolean = False; nWhere: string = '');
     //读取数据
     function GetVal(const nRow: Integer; const nField: string): string;
     //字段数据
@@ -168,15 +173,19 @@ begin
   UniQuery1.Open;
 end;
 
-procedure TfFormClient.RefreshVIPTruckList(const nHasDel: Boolean);
+procedure TfFormClient.RefreshVIPTruckList(nHasDel: Boolean; nWhere: string);
 var nStr: string;
 begin
   FLoadValidTruck := not nHasDel;
-  nStr := 'Select * from %s Where t_valid=%d Order By id';
-  
+  nStr := 'Select * from %s Where t_valid=%d %s Order By id';
+
+  if nWhere <> '' then
+    nWhere := Format('And (%s)', [nWhere]);
+  //xxxxx
+
   if nHasDel then
-       nStr := Format(nStr, [sTable_Truck, 1])
-  else nStr := Format(nStr, [sTable_Truck, 0]);
+       nStr := Format(nStr, [sTable_Truck, 1, nWhere])
+  else nStr := Format(nStr, [sTable_Truck, 0, nWhere]);
 
   UniQuery2.Close;
   UniQuery2.SQL.Text := nStr;
@@ -321,6 +330,34 @@ begin
   end;
 
   RefreshVIPTruckList(not FLoadValidTruck);
+end;
+
+procedure TfFormClient.EditFindPropertiesButtonClick(Sender: TObject;
+  AButtonIndex: Integer);
+var nStr: string;
+begin
+  EditFind.Text := Trim(EditFind.Text);
+  EditFind.SelStart := 0;
+  EditFind.SelectAll;
+  
+  if EditFind.Text = '' then
+  begin
+    ShowMsg('请输入车牌号', sHint);
+    Exit;
+  end;
+
+  nStr := 't_truck like ''%%%s%%''';
+  nStr := Format(nStr, [EditFind.Text]);
+  RefreshVIPTruckList(False, nStr);
+end;
+
+procedure TfFormClient.EditFindKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key = #13 then
+  begin
+    Key := #0;
+    EditFindPropertiesButtonClick(nil, 0);
+  end;
 end;
 
 end.

@@ -316,6 +316,26 @@ object fFormClient: TfFormClient
           LookAndFeel.NativeStyle = False
           LookAndFeel.SkinName = ''
         end
+        object cxLabel2: TcxLabel
+          Left = 340
+          Top = 25
+          Caption = #26597#25214':'
+          ParentFont = False
+          Transparent = True
+        end
+        object EditFind: TcxButtonEdit
+          Left = 375
+          Top = 23
+          Properties.Buttons = <
+            item
+              Default = True
+              Kind = bkEllipsis
+            end>
+          Properties.OnButtonClick = EditFindPropertiesButtonClick
+          TabOrder = 5
+          OnKeyPress = EditFindKeyPress
+          Width = 121
+        end
       end
     end
   end
