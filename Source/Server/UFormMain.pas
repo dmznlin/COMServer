@@ -111,6 +111,7 @@ type
     ComboGQ: TcxComboBox;
     cxLabel2: TcxLabel;
     Timer2: TTimer;
+    CheckYG: TcxCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -556,6 +557,9 @@ procedure TfFormMain.CheckAdjustClick(Sender: TObject);
 begin
   CheckCP.Enabled := (not CheckAdjust.Checked) and (CheckCP.Tag <> 0);
   CheckGQ.Enabled := not CheckAdjust.Checked;
+
+  CheckYG.Enabled := not CheckAdjust.Checked;
+  CheckYG.Checked := False; //默认不启用
 end;
 
 //------------------------------------------------------------------------------
@@ -860,6 +864,7 @@ end;
 function TfFormMain.AdjustProtocol(const nData: PDataItem): Boolean;
 var nStr,nSVal: string;
     nIdx,nInt: Integer;
+    nYGVerify: Boolean;
     nPY,nDG,nDQ,nRnd,nVal: Double;
 begin
   Result := False;
@@ -871,10 +876,26 @@ begin
   WriteLog(nStr);
   {$ENDIF}
 
+  nDQ := StrToFloat(nData.Fyi);
+  //远光强度
+  nYGVerify := (nDQ < 0.1) and CheckYG.Checked;
+  //远光异常校正
+
   nPY := StrToFloat(nData.Fjud);
   //上下偏移
   nDG := StrToFloat(nData.Fjh);
   //灯高
+  
+  if nYGVerify then
+  begin
+    if nDG < 0.1 then
+      nDG := 60 + Random(20);
+    //随机补偿灯高
+
+    if nPY < 0.1 then
+      nPY := 0.01;
+    //不合格偏移,引导进入下面校正逻辑
+  end;
 
   if (nPY <> 0) and (nDG <> 0) and (not CheckCP.Checked) then
   begin
@@ -903,7 +924,7 @@ begin
       if nIdx < nInt then
         nSVal := nSVal + StringOfChar('0', nInt-nIdx);
       //xxxxx
-      
+
       nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
                                                Copy(nSVal, 1, nInt)]);
       WriteLog(nStr);
@@ -928,10 +949,8 @@ begin
   end;
 
   //----------------------------------------------------------------------------
-  nDQ := StrToFloat(nData.Fyi);
-  //远光强度
-
-  if (nDQ > FYGMinValue / 100) and (nDQ < 150) and (not CheckGQ.Checked) then
+  if (not CheckGQ.Checked) and (nYGVerify or (
+     (nDQ > FYGMinValue / 100) and (nDQ < 150))) then
   begin
     nDQ := 150 + Random(50);
     nSVal := FloatToStr(nDQ);
@@ -940,7 +959,7 @@ begin
     if nInt > 0 then
       nSVal := StringOfChar('0', nInt) + nSVal;
     //xxxxx
-    
+
     nInt := Length(nData.Fyi);
     nStr := Format('灯光补偿:[ %s -> %s ]', [Copy(nData.Fyi, 1, nInt),
                                              Copy(nSVal, 1, nInt)]);

@@ -123,11 +123,11 @@ object fFormMain: TfFormMain
       Left = 0
       Top = 103
       Width = 165
-      Height = 215
+      Height = 220
       TabOrder = 1
       UseStyle = True
       GroupIndex = 1
-      OriginalHeight = 215
+      OriginalHeight = 220
       object CheckAuto: TcxCheckBox
         Left = 20
         Top = 70
@@ -190,10 +190,18 @@ object fFormMain: TfFormMain
         Transparent = True
         Width = 121
       end
+      object CheckYG: TcxCheckBox
+        Left = 30
+        Top = 190
+        Caption = #36828#20809#24322#24120#26102#26657#27491
+        TabOrder = 8
+        Transparent = True
+        Width = 121
+      end
     end
     object dxNavGroup3Control: TdxNavBarGroupControl
       Left = 0
-      Top = 337
+      Top = 342
       Width = 165
       Height = 165
       TabOrder = 3
