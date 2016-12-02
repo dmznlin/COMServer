@@ -192,6 +192,11 @@ end;
 function TFDM.VIPTruckInLine(const nLine: Integer): Boolean;
 var nIdx: Integer;
 begin
+  {$IFDEF DEBUG}
+  Result := True;
+  Exit;
+  {$ENDIF}
+
   Result := FVIPTrucks.IndexOf(MakeVIPTruck) >= 0;
   if Result then Exit;
 

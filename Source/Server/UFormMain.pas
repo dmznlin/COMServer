@@ -44,8 +44,14 @@ type
     FAdj_Val_CO: Word;            //碳氧值(0.01<x<0.3,大于0.3校正)
     FAdj_Dir_CO: Boolean;
     FAdj_Kpt_CO: Word;
+    FAdj_Chg_KR: Boolean;         //空燃比变动
     FAdj_Val_KR: Word;            //空燃比(0.97<x<1.03,大于1.03校正)
     FAdj_Val_BS: Word;            //空燃比基数
+    FAdj_Val_O2: Word;
+    FAdj_Kpt_O2: Word;
+    FAdj_BSE_O2: Word;            //氧气参数
+    FAdj_Val_CO2:Word;
+    FAdj_BSE_CO2:Word;            //二氧化碳
     FAdj_LastActive: Int64;       //上次触发
   end;
 
@@ -179,7 +185,7 @@ const
   cSize_WQ_Data    = SizeOf(TWQData);                 //数据大小
 
   cAdj_KeepLong    = 6;                              //数据保持最大次数
-  cAdj_Interval    = 1 * 1000 * 60;                   //校正数据有效期
+  cAdj_Interval    = 1 * 1000 * 60;                  //校正数据有效期
 
   sCMD_WQ_TL      = Char($02) + Char($67) + Char($03) + Char($94); //调零指令
 
@@ -584,6 +590,7 @@ end;
 //Desc: 读取配置
 procedure TfFormMain.LoadCOMConfig;
 var nIdx: Integer;
+    nDef: TCOMItem;
     nIni: TIniFile;
     nList: TStrings;
 begin
@@ -591,11 +598,13 @@ begin
   nIni := TIniFile.Create(gPath + 'Ports.ini');
   try
     nIni.ReadSections(nList);
+    FillChar(nDef, SizeOf(nDef), #0);
     SetLength(FCOMPorts, nList.Count);
 
     for nIdx:=nList.Count-1 downto 0 do
     with FCOMPorts[nIdx],nIni do
     begin
+      FCOMPorts[nIdx] := nDef;
       FItemName  := ReadString(nList[nIdx], 'Name', '');
       FItemGroup := ReadString(nList[nIdx], 'Group', '');
       FItemType := Str2COMType(ReadString(nList[nIdx], 'Type', '0'));
@@ -1139,7 +1148,8 @@ begin
     nInt := Item2Word(nData.FKRB); //空燃比: 0.97<x<1.03
     if (nInt >= 1030) or ((nInt <= 970) and (nInt >= 700)) then 
     begin
-      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+         (FAdj_Val_BS < 1) then
         FAdj_Val_BS := 971 + Random(50); //1030 - 970 = 60
       //base value
 
@@ -1148,13 +1158,48 @@ begin
 
       nStr := Format('空燃比:[ %d -> %d ]', [nInt, FAdj_Val_KR]);
       WriteLog(nStr);
+
       Result := True;
+      FAdj_Chg_KR := True;
+    end else FAdj_Chg_KR := False;
+
+    if FAdj_Chg_KR then //空燃比变动,更新氧气和二氧化碳
+    begin
+      if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+         (FAdj_BSE_O2 < 1) then
+      begin
+        FAdj_BSE_O2 := 40 + Random(40);  //氧气: 30-90,上下10
+        FAdj_Kpt_O2 := Random(cAdj_KeepLong);
+        FAdj_Val_O2 := FAdj_BSE_O2 + Random(10);
+      end;
+
+      if FAdj_Kpt_O2 < 1 then
+      begin
+        FAdj_Kpt_O2 := Random(cAdj_KeepLong);
+        //xxxxx
+
+        if Random(10) mod 2 = 0 then
+             FAdj_Val_O2 := FAdj_BSE_O2 + Random(10)
+        else FAdj_Val_O2 := FAdj_BSE_O2 - Random(10);
+      end else Dec(FAdj_Kpt_O2);
+
+      nStr := Format('氧气(O2):[ %d -> %d ]', [Item2Word(nData.FO2), FAdj_Val_O2]);
+      WriteLog(nStr);
+      Word2Item(nData.FO2, FAdj_Val_O2);
+
+      FAdj_BSE_CO2 := 148 + Random(6); //14.8 - 15.4
+      FAdj_Val_CO2 := Trunc((FAdj_BSE_CO2 / 10 - FAdj_Val_O2 / 100) * 100);
+
+      nStr := Format('二氧化碳(CO2):[ %d -> %d ]', [Item2Word(nData.FCO2), FAdj_Val_CO2]);
+      WriteLog(nStr);
+      Word2Item(nData.FCO2, FAdj_Val_CO2);
     end;
 
     nInt := Item2Word(nData.FHC);
     if nInt >= 100 then //碳氢: 80<x<100
     begin
-      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+         (FAdj_Val_HC < 1) then
       begin
         FAdj_Kpt_HC := Random(cAdj_KeepLong);
         FAdj_Val_HC := 80 + Random(20);
@@ -1168,7 +1213,7 @@ begin
       begin
         FAdj_Kpt_HC := Random(cAdj_KeepLong);
         //xxxxx
-        
+
         if FAdj_Dir_HC then
              FAdj_Val_HC := FAdj_Val_HC + Random(3)
         else FAdj_Val_HC := FAdj_Val_HC - Random(3);
@@ -1196,7 +1241,8 @@ begin
     nInt := Item2Word(nData.FCO);
     if nInt >= 30 then //碳氧: 1<x<30
     begin
-      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+         (FAdj_Val_CO < 1) then
       begin
         FAdj_Kpt_CO := Random(cAdj_KeepLong);
         FAdj_Val_CO := 1 + Random(29);
@@ -1238,7 +1284,8 @@ begin
     nInt := Item2Word(nData.FNO);
     if nInt >= 600 then //氮氧:200<x<600
     begin
-      if GetTickCount - FAdj_LastActive >= cAdj_Interval then
+      if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+         (FAdj_Val_NO < 1) then
       begin
         FAdj_Kpt_NO := Random(cAdj_KeepLong);
         FAdj_Val_NO := 200 + Random(400);
