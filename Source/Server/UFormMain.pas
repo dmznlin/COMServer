@@ -1046,16 +1046,19 @@ begin
     end; //数据包过大时,最后一个协议头位置,将前面的数据转发
 
     //--------------------------------------------------------------------------
-    nS := Pos(cChar_WQ_Head, FBuffer);
-    if FBuffer = sCMD_WQ_TL then
+    nS := Pos(sCMD_WQ_TL, FBuffer);
+    if nS > 0 then
     begin
       FData := '';
       FAdj_LastActive := 0;
+      RedirectData(nItem, nGroup, sCMD_WQ_TL);
 
       FDM.LoadTruckList;
       //载入待检车辆
+      Exit;
     end; //调零指令,重置数据
 
+    nS := Pos(cChar_WQ_Head, FBuffer);
     if (nS < 1) and (FData = '') then
     begin
       RedirectData(nItem, nGroup, FBuffer);
@@ -1150,7 +1153,7 @@ begin
     begin
       if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
          (FAdj_Val_BS < 1) then
-        FAdj_Val_BS := 971 + Random(50); //1030 - 970 = 60
+        FAdj_Val_BS := 990 + Random(30); //1030 - 990 = 40
       //base value
 
       FAdj_Val_KR := FAdj_Val_BS + Random(10);
