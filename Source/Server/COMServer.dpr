@@ -5,7 +5,7 @@ uses
   Windows,
   Forms,
   UFormMain in 'UFormMain.pas' {fFormMain},
-  UDataModule in 'UDataModule.pas' {FDM: TDataModule};
+  USyncTrucks in 'USyncTrucks.pas';
 
 {$R *.res}
 
@@ -24,8 +24,7 @@ begin
   
   Application.Initialize;
   Application.Title := '数据服务';
-  Application.CreateForm(TFDM, FDM);
-  Application.CreateForm(TfFormMain, fFormMain); 
+  Application.CreateForm(TfFormMain, fFormMain);
   Application.Run;
 
   ReleaseMutex(gMutexHwnd);

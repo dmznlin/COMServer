@@ -13,13 +13,6 @@ uses
   MySQLUniProvider;
 
 type
-  TTruckItem = record
-    FTruck: string;            //车牌号
-    FLine: Integer;            //检测线
-  end;
-
-  TTruckItems = array of TTruckItem;
-
   TFDM = class(TDataModule)
     dxLayout1: TdxLayoutLookAndFeelList;
     XPM1: TXPManifest;
@@ -30,6 +23,7 @@ type
     Command: TUniQuery;
     SqlTemp: TUniQuery;
     MySQL1: TMySQLUniProvider;
+    DBConn2: TUniConnection;
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
   private
@@ -39,12 +33,14 @@ type
     FVIPTrucks: TStrings;
     //车辆列表
     function MakeVIPTruck: string;
+    function GetTruckItem(const nTruck: string): Integer;
   public
     { Public declarations }
     function LoadDBConfig: Boolean;
     procedure LoadTruckList;
+    procedure LoadTruckToList(const nList: TStrings);
     //读取数据
-    function VIPTruckInLine(const nLine: Integer): Boolean;
+    function VIPTruckInLine(const nLine: Integer; const nType: TSystemType): Boolean;
     //车辆在线
     function QuerySQL(const nSQL: string): TDataSet;
     function QueryTemp(const nSQL: string): TDataSet;
@@ -69,6 +65,10 @@ implementation
 uses
   IniFiles, ULibFun, UBase64, USysDB, USysLoger;
 
+const
+  cTruckKeepLong = 1 * 1000 * 60 * 60;
+  //车辆列表内保持: 1小时
+
 procedure WriteLog(const nEvent: string);
 begin
   gSysLoger.AddLog(TFDM, '数据模块', nEvent);
@@ -88,22 +88,40 @@ end;
 
 function TFDM.LoadDBConfig: Boolean;
 var nIni: TIniFile;
+
+    //Date: 2017-02-20
+    //Parm: 链路;配置节点
+    //Desc: 设置nConn参数
+    procedure LoadConn(const nConn: TUniConnection; const nKey: string);
+    begin
+      with nIni, nConn do
+      begin
+        Disconnect;
+        ProviderName := 'MySQL';
+        SpecificOptions.Values['Charset'] := 'gb2312';
+
+        Server := ReadString(nKey, 'Server', '');
+        Port := ReadInteger(nKey, 'Port', 0);
+        Database := ReadString(nKey, 'DBName', 'detect');
+        Username := ReadString(nKey, 'User', '');
+        Password := DecodeBase64(ReadString(nKey, 'Password', ''));
+
+        if ReadInteger(nKey, 'DBEnable', 1) = 0 then
+        begin
+          nConn.Tag := 0;
+          //no conn
+        end else
+        begin
+          nConn.Tag := 10;
+          Connect;
+        end;
+      end;
+    end;
 begin
   nIni := TIniFile.Create(gPath+sConfig);
-  with nIni,DBConn1 do
   try
-    Disconnect;
-    ProviderName := 'MySQL';
-    SpecificOptions.Values['Charset'] := 'gb2312';
-
-    Server := ReadString('DB', 'Server', '');
-    Port := ReadInteger('DB', 'Port', 0);
-    Database := ReadString('DB', 'DBName', 'detect');
-    Username := ReadString('DB', 'User', '');
-    Password := DecodeBase64(ReadString('DB', 'Password', ''));
-
-    if ReadInteger('DB', 'DBEnable', 1) <> 0 then
-      Connect;
+    LoadConn(DBConn1, 'DB');
+    LoadConn(DBConn2, 'DB2');
     Result := True;
   except
     on E:Exception do
@@ -114,6 +132,35 @@ begin
   end;
 
   nIni.Free;
+end;
+
+//Date: 2017-02-27
+//Parm: 车牌号
+//Desc: 检索nTruck车辆索引
+function TFDM.GetTruckItem(const nTruck: string): Integer;
+var nIdx: Integer;
+begin
+  for nIdx:=Low(FTrucks) to High(FTrucks) do
+  if CompareText(nTruck, FTrucks[nIdx].FTruck) = 0 then
+  begin
+    FTrucks[nIdx].FLastActive := GetTickCount;
+    Result := nIdx;
+    Exit;
+  end;
+
+  for nIdx:=Low(FTrucks) to High(FTrucks) do
+  if GetTickCount - FTrucks[nIdx].FLastActive > cTruckKeepLong then
+  begin
+    FTrucks[nIdx].FLastActive := GetTickCount;
+    Result := nIdx;
+    Exit;
+  end;
+
+  nIdx := Length(FTrucks);
+  SetLength(FTrucks, nIdx + 1);
+  
+  Result := nIdx;
+  FTrucks[nIdx].FLastActive := GetTickCount;
 end;
 
 procedure TFDM.LoadTruckList;
@@ -128,29 +175,11 @@ begin
   end;
 
   FVIPTrucks.Clear;
-  SetLength(FTrucks, 0);
-
-  nStr := 'select car_num,goline from %s order by id asc';
-  nStr := Format(nStr, [sTable_WQTruck]);
-  nDS := QueryTemp(nStr);
-  //待检车辆
-
-  if Assigned(nDS) and (nDS.RecordCount > 0) then
-  with nDS do
-  begin
-    SetLength(FTrucks, RecordCount);
-    nIdx := 0;
-    First;
-
-    while not Eof do
-    begin
-      FTrucks[nIdx].FTruck := Fields[0].AsString;
-      FTrucks[nIdx].FLine := Fields[1].AsInteger;
-
-      Inc(nIdx);
-      Next;
-    end;
-  end;
+  SqlTemp.Active := False;
+  
+  if DBConn1.Tag > 0 then
+       SqlTemp.Connection := DBConn1
+  else SqlTemp.Connection := DBConn2; //切换链路
 
   nStr := 'select t_truck from %s where t_valid=0 order by id asc';
   nStr := Format(nStr, [sTable_Truck]);
@@ -165,6 +194,62 @@ begin
     while not Eof do
     begin
       FVIPTrucks.Add(Fields[0].AsString);
+      Next;
+    end;
+  end;
+
+  //----------------------------------------------------------------------------
+  SqlTemp.Active := False;
+  SqlTemp.Connection := DBConn1;
+  //切换链路
+
+  nStr := 'select car_num,goline from %s order by id asc';
+  nStr := Format(nStr, [sTable_WQTruck]);
+  nDS := QueryTemp(nStr);
+  //尾气待检车辆
+
+  if Assigned(nDS) and (nDS.RecordCount > 0) then
+  with nDS do
+  begin
+    First;
+
+    while not Eof do
+    begin
+      nIdx := GetTruckItem(Fields[0].AsString);
+      with FTrucks[nIdx] do
+      begin
+        FTruck := Fields[0].AsString;
+        FLine := Fields[1].AsInteger;
+      end;
+
+      Next;
+    end;
+  end;
+                 
+  //----------------------------------------------------------------------------
+  SqlTemp.Active := False;
+  SqlTemp.Connection := DBConn2;
+  //切换链路
+
+  nStr := 'select car_num,goline from %s where Gw_Three=1 order by id asc';
+  nStr := Format(nStr, [sTable_DDTruck]);
+  nDS := QueryTemp(nStr);
+  //大灯待检车辆
+
+  if Assigned(nDS) and (nDS.RecordCount > 0) then
+  with nDS do
+  begin
+    First;
+
+    while not Eof do
+    begin
+      nIdx := GetTruckItem(Fields[0].AsString);
+      with FTrucks[nIdx] do
+      begin
+        FTruck := Fields[0].AsString;
+        FLine := Fields[1].AsInteger;
+      end;
+
       Next;
     end;
   end;
@@ -189,7 +274,7 @@ end;
 //Date: 2016-10-15
 //Parm: 工位线号
 //Desc: 检查nLine线的当前车辆是否在VIP车辆列表中
-function TFDM.VIPTruckInLine(const nLine: Integer): Boolean;
+function TFDM.VIPTruckInLine(const nLine: Integer; const nType: TSystemType): Boolean;
 var nIdx: Integer;
 begin
   {$IFDEF DEBUG}
@@ -200,12 +285,42 @@ begin
   Result := FVIPTrucks.IndexOf(MakeVIPTruck) >= 0;
   if Result then Exit;
 
+  if nType = stDD then
+    LoadTruckList;
+  //大灯时刷新车辆列表
+
   for nIdx:=Low(FTrucks) to High(FTrucks) do
-  if FTrucks[nIdx].FLine = nLine then
+   with FTrucks[nIdx] do
+    if (FLine = nLine) and (GetTickCount - FLastActive <= cTruckKeepLong) then
+    begin
+      Result := FVIPTrucks.IndexOf(FTruck) >= 0;
+      Exit;
+    end;
+end;
+
+procedure TFDM.LoadTruckToList(const nList: TStrings);
+var nStr: string;
+    nIdx: Integer;
+begin
+  LoadTruckList;
+  nList.Add('待检车辆:');
+
+  for nIdx:=Low(FTrucks) to High(FTrucks) do
+  with FTrucks[nIdx] do
   begin
-    Result := FVIPTrucks.IndexOf(FTrucks[nIdx].FTruck) >= 0;
-    Exit;
+    if GetTickCount - FLastActive > cTruckKeepLong then Continue;
+    if FVIPTrucks.IndexOf(FTruck) >= 0 then
+         nStr := 'VIP'
+    else nStr := '';
+
+    nStr := Format('|--- %d.%s [%s %d线]', [nIdx+1, FTruck, nStr, FLine]);
+    nList.Add(nStr);
   end;
+
+  nList.Add(#13#10 + 'VIP车辆:');
+  for nIdx:=0 to FVIPTrucks.Count-1 do
+    nList.Add('|--- ' + IntToStr(nIdx+1) + '.' + FVIPTrucks[nIdx]);
+  //xxxxx
 end;
 
 //------------------------------------------------------------------------------
@@ -215,6 +330,8 @@ var nStep: Integer;
     nException: string;
 begin
   Result := -1;
+  if SqlTemp.Connection.Tag = 0 then Exit;
+
   nException := '';
   nStep := 0;
   
@@ -261,6 +378,8 @@ var nStep: Integer;
     nException: string;
 begin
   Result := nil;
+  if SQLQuery.Connection.Tag = 0 then Exit;
+
   nException := '';
   nStep := 0;
 
@@ -306,6 +425,8 @@ var nStep: Integer;
     nException: string;
 begin
   Result := nil;
+  if SQLTemp.Connection.Tag = 0 then Exit;
+
   nException := '';
   nStep := 0;
 

@@ -80,15 +80,15 @@ object fFormMain: TfFormMain
       Left = 0
       Top = 19
       Width = 165
-      Height = 65
+      Height = 85
       Caption = 'dxNavGroup1Control'
       TabOrder = 2
       UseStyle = True
       GroupIndex = 0
-      OriginalHeight = 65
+      OriginalHeight = 85
       object CheckLoged: TcxCheckBox
         Left = 20
-        Top = 38
+        Top = 58
         Caption = #26174#31034#35843#35797#26085#24535
         TabOrder = 0
         Transparent = True
@@ -118,10 +118,33 @@ object fFormMain: TfFormMain
         AnchorX = 68
         AnchorY = 23
       end
+      object BtnOnline: TcxLabel
+        Left = 20
+        Top = 34
+        AutoSize = False
+        Caption = #9678' '#22312#32447#36710#36742' '#9678
+        Style.BorderStyle = ebsNone
+        Style.Edges = [bBottom]
+        Style.HotTrack = True
+        StyleFocused.BorderStyle = ebsNone
+        StyleFocused.TextColor = clWindowText
+        StyleFocused.TextStyle = []
+        StyleHot.BorderStyle = ebsOffice11
+        StyleHot.TextColor = clGreen
+        StyleHot.TextStyle = []
+        Properties.Alignment.Horz = taCenter
+        Properties.Alignment.Vert = taVCenter
+        Transparent = True
+        OnClick = BtnOnlineClick
+        Height = 22
+        Width = 95
+        AnchorX = 68
+        AnchorY = 45
+      end
     end
     object dxNavGroup2Control: TdxNavBarGroupControl
       Left = 0
-      Top = 103
+      Top = 123
       Width = 165
       Height = 220
       TabOrder = 1
@@ -201,7 +224,7 @@ object fFormMain: TfFormMain
     end
     object dxNavGroup3Control: TdxNavBarGroupControl
       Left = 0
-      Top = 342
+      Top = 362
       Width = 165
       Height = 165
       TabOrder = 3

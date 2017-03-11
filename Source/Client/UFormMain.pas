@@ -71,6 +71,21 @@ type
     BtnHasDel: TcxButton;
     cxLabel2: TcxLabel;
     EditFind: TcxButtonEdit;
+    dxLayoutControl1Group2: TdxLayoutGroup;
+    dxLayoutControl1Item7: TdxLayoutItem;
+    EditPort2: TcxTextEdit;
+    dxLayoutControl1Item9: TdxLayoutItem;
+    EditIP2: TcxTextEdit;
+    dxLayoutControl1Item10: TdxLayoutItem;
+    EditDB2: TcxTextEdit;
+    dxLayoutControl1Item11: TdxLayoutItem;
+    EditUser2: TcxTextEdit;
+    dxLayoutControl1Item12: TdxLayoutItem;
+    EditPwd2: TcxTextEdit;
+    dxLayoutControl1Item13: TdxLayoutItem;
+    cxLabel3: TcxLabel;
+    dxLayoutControl1Item14: TdxLayoutItem;
+    BtnSave2: TcxButton;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;
@@ -201,6 +216,29 @@ begin
 
   with nIF do
   try
+    if (ActiveControl = BtnSave2) or (ActiveControl <> BtnSave) then
+    begin
+      if nRead then
+      begin
+        EditIP2.Text := ReadString('DB2', 'Server', '');
+        EditPort2.Text := IntToStr(ReadInteger('DB2', 'Port', 0));
+        EditDB2.Text := ReadString('DB2', 'DBName', 'detect');
+        EditUser2.Text := ReadString('DB2', 'User', '');
+        EditPwd2.Text := DecodeBase64(ReadString('DB2', 'Password', ''));
+      end else
+      begin
+        WriteString('DB2', 'Server', EditIP2.Text);
+        WriteString('DB2', 'Port', EditPort2.Text);
+        WriteString('DB2', 'DBName', EditDB2.Text);
+        WriteString('DB2', 'User', EditUser2.Text);
+        WriteString('DB2', 'Password', EncodeBase64(EditPwd2.Text));
+      end;
+
+      if ActiveControl = BtnSave2 then
+        Exit;
+      //xxxxx
+    end;
+
     if nRead then
     begin
       EditIP.Text := ReadString('DB', 'Server', '');

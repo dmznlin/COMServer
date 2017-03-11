@@ -1,8 +1,8 @@
 object fFormClient: TfFormClient
   Left = 441
   Top = 297
-  Width = 630
-  Height = 595
+  Width = 704
+  Height = 558
   BorderIcons = [biSystemMenu, biMinimize]
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -17,8 +17,8 @@ object fFormClient: TfFormClient
   TextHeight = 12
   object dxStatusBar1: TdxStatusBar
     Left = 0
-    Top = 548
-    Width = 622
+    Top = 511
+    Width = 696
     Height = 20
     Panels = <>
     PaintStyle = stpsUseLookAndFeel
@@ -31,14 +31,14 @@ object fFormClient: TfFormClient
   object wPage: TcxPageControl
     Left = 0
     Top = 80
-    Width = 622
-    Height = 468
-    ActivePage = Sheet2
+    Width = 696
+    Height = 431
+    ActivePage = Sheet3
     Align = alClient
     TabOrder = 1
     OnPageChanging = wPagePageChanging
-    ClientRectBottom = 468
-    ClientRectRight = 622
+    ClientRectBottom = 431
+    ClientRectRight = 696
     ClientRectTop = 23
     object Sheet3: TcxTabSheet
       Caption = #21442#25968#35774#32622
@@ -46,8 +46,8 @@ object fFormClient: TfFormClient
       object dxLayoutControl1: TdxLayoutControl
         Left = 0
         Top = 0
-        Width = 622
-        Height = 445
+        Width = 696
+        Height = 408
         Align = alClient
         TabOrder = 0
         TabStop = False
@@ -107,12 +107,68 @@ object fFormClient: TfFormClient
           Height = 5
           Width = 272
         end
+        object EditPort2: TcxTextEdit
+          Left = 394
+          Top = 61
+          ParentFont = False
+          TabOrder = 8
+          Width = 202
+        end
+        object EditIP2: TcxTextEdit
+          Left = 394
+          Top = 36
+          ParentFont = False
+          TabOrder = 7
+          Width = 202
+        end
+        object EditDB2: TcxTextEdit
+          Left = 394
+          Top = 86
+          ParentFont = False
+          TabOrder = 9
+          Width = 202
+        end
+        object EditUser2: TcxTextEdit
+          Left = 394
+          Top = 121
+          ParentFont = False
+          TabOrder = 11
+          Width = 202
+        end
+        object EditPwd2: TcxTextEdit
+          Left = 394
+          Top = 146
+          ParentFont = False
+          Properties.PasswordChar = '*'
+          TabOrder = 12
+          Width = 202
+        end
+        object cxLabel3: TcxLabel
+          Left = 324
+          Top = 111
+          AutoSize = False
+          ParentFont = False
+          Transparent = True
+          Height = 5
+          Width = 272
+        end
+        object BtnSave2: TcxButton
+          Left = 531
+          Top = 171
+          Width = 65
+          Height = 22
+          Caption = #20445#23384
+          TabOrder = 13
+          OnClick = BtnSaveClick
+          LookAndFeel.SkinName = ''
+        end
         object dxLayoutControl1Group_Root: TdxLayoutGroup
           ShowCaption = False
           Hidden = True
+          LayoutDirection = ldHorizontal
           ShowBorder = False
           object dxLayoutControl1Group1: TdxLayoutGroup
-            Caption = #25968#25454#24211
+            Caption = #25968#25454#24211' - '#23614#27668
             object dxLayoutControl1Item1: TdxLayoutItem
               Caption = #26381#21153#22120#22320#22336':'
               Control = EditIP
@@ -153,6 +209,46 @@ object fFormClient: TfFormClient
               ControlOptions.ShowBorder = False
             end
           end
+          object dxLayoutControl1Group2: TdxLayoutGroup
+            Caption = #25968#25454#24211' - '#22823#28783
+            object dxLayoutControl1Item9: TdxLayoutItem
+              Caption = #26381#21153#22120#22320#22336':'
+              Control = EditIP2
+              ControlOptions.ShowBorder = False
+            end
+            object dxLayoutControl1Item7: TdxLayoutItem
+              Caption = #26381#21153#22120#31471#21475':'
+              Control = EditPort2
+              ControlOptions.ShowBorder = False
+            end
+            object dxLayoutControl1Item10: TdxLayoutItem
+              Caption = #25968#25454#24211#21517#31216':'
+              Control = EditDB2
+              ControlOptions.ShowBorder = False
+            end
+            object dxLayoutControl1Item13: TdxLayoutItem
+              ShowCaption = False
+              Control = cxLabel3
+              ControlOptions.ShowBorder = False
+            end
+            object dxLayoutControl1Item11: TdxLayoutItem
+              Caption = #29992#25143#21517#31216':'
+              Control = EditUser2
+              ControlOptions.ShowBorder = False
+            end
+            object dxLayoutControl1Item12: TdxLayoutItem
+              Caption = #30331#24405#23494#30721':'
+              Control = EditPwd2
+              ControlOptions.ShowBorder = False
+            end
+            object dxLayoutControl1Item14: TdxLayoutItem
+              AutoAligns = [aaVertical]
+              AlignHorz = ahRight
+              ShowCaption = False
+              Control = BtnSave2
+              ControlOptions.ShowBorder = False
+            end
+          end
         end
       end
     end
@@ -162,8 +258,8 @@ object fFormClient: TfFormClient
       object cxGrid1: TcxGrid
         Left = 0
         Top = 0
-        Width = 622
-        Height = 390
+        Width = 696
+        Height = 353
         Align = alClient
         BorderStyle = cxcbsNone
         TabOrder = 0
@@ -196,7 +292,7 @@ object fFormClient: TfFormClient
       end
       object cxGroupBox1: TcxGroupBox
         Left = 0
-        Top = 390
+        Top = 353
         Align = alBottom
         Caption = #24037#20855
         PanelStyle.Active = True
@@ -206,7 +302,7 @@ object fFormClient: TfFormClient
         Style.TransparentBorder = True
         TabOrder = 1
         Height = 55
-        Width = 622
+        Width = 696
         object BtnRefresh: TcxButton
           Left = 10
           Top = 22
@@ -226,8 +322,8 @@ object fFormClient: TfFormClient
       object cxGrid2: TcxGrid
         Left = 0
         Top = 0
-        Width = 622
-        Height = 390
+        Width = 696
+        Height = 353
         Align = alClient
         BorderStyle = cxcbsNone
         TabOrder = 0
@@ -261,7 +357,7 @@ object fFormClient: TfFormClient
       end
       object cxGroupBox2: TcxGroupBox
         Left = 0
-        Top = 390
+        Top = 353
         Align = alBottom
         Caption = #24037#20855
         PanelStyle.Active = True
@@ -271,7 +367,7 @@ object fFormClient: TfFormClient
         Style.TransparentBorder = True
         TabOrder = 1
         Height = 55
-        Width = 622
+        Width = 696
         object BtnAdd: TcxButton
           Left = 170
           Top = 22
@@ -326,6 +422,7 @@ object fFormClient: TfFormClient
         object EditFind: TcxButtonEdit
           Left = 375
           Top = 23
+          ParentFont = False
           Properties.Buttons = <
             item
               Default = True
@@ -342,7 +439,7 @@ object fFormClient: TfFormClient
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 622
+    Width = 696
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -352,7 +449,7 @@ object fFormClient: TfFormClient
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 401
+      Width = 475
       Height = 80
       Align = alClient
       AutoSize = True
@@ -1025,7 +1122,7 @@ object fFormClient: TfFormClient
       Stretch = True
     end
     object Image2: TImage
-      Left = 401
+      Left = 475
       Top = 0
       Width = 221
       Height = 80

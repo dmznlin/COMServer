@@ -9,16 +9,13 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  CPort, CPortTypes, UTrayIcon, UDataModule, cxGraphics, cxControls,
+  USyncTrucks, CPort, CPortTypes, UTrayIcon, cxGraphics, cxControls,
   cxLookAndFeels, cxLookAndFeelPainters, cxContainer, cxEdit, IdContext,
-  StdCtrls, ExtCtrls, IdBaseComponent, IdComponent, IdCustomTCPServer,
-  IdTCPServer, cxMaskEdit, cxDropDownEdit, cxTextEdit, cxLabel, cxCheckBox,
+  ExtCtrls, IdBaseComponent, IdComponent, IdCustomTCPServer, IdTCPServer,
+  StdCtrls, cxMaskEdit, cxDropDownEdit, cxTextEdit, cxLabel, cxCheckBox,
   dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls;
 
 type
-  TCOMType = (ctDD, ctWQ);
-  //类型: 大灯仪,尾气检测仪
-
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
@@ -118,6 +115,7 @@ type
     cxLabel2: TcxLabel;
     Timer2: TTimer;
     CheckYG: TcxCheckBox;
+    BtnOnline: TcxLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -130,6 +128,7 @@ type
     procedure dxNavGroup2Collapsed(Sender: TObject);
     procedure ComboGQPropertiesChange(Sender: TObject);
     procedure Timer2Timer(Sender: TObject);
+    procedure BtnOnlineClick(Sender: TObject);
   private
     { Private declarations }
     FTrayIcon: TTrayIcon;
@@ -375,17 +374,20 @@ begin
   FTrayIcon.Hint := Caption;
   FTrayIcon.Visible := True;
 
-  if FDM.LoadDBConfig then //读取数据库配置
-  begin
-    LoadCOMConfig;
-    //读取串口配置
-  end;
+  gTruckManager := TTruckManager.Create(gPath + sConfig);
+  //同步在线车辆
+
+  LoadCOMConfig;
+  //读取串口配置
 end;
 
 procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
 var nIni: TIniFile;
     nReg: TRegistry;
 begin
+  gTruckManager.StopMe;
+  gTruckManager := nil;
+  
   nIni := nil;
   nReg := nil;
   try
@@ -530,6 +532,18 @@ begin
     Add('|--- 停位: ' + StopBitsToStr(FStopBits));
     Add('|--- 备注: ' + FMemo);
     Add('');
+  end;
+end;
+
+procedure TfFormMain.BtnOnlineClick(Sender: TObject);
+begin
+  MemoLog.Lines.BeginUpdate;
+  try
+    MemoLog.Clear;
+    gTruckManager.LoadTruckToList(MemoLog.Lines);
+    MemoLog.SelStart := 0;
+  finally
+    MemoLog.Lines.EndUpdate;
   end;
 end;
 
@@ -713,7 +727,7 @@ begin
       FCOMObject.ReadStr(FBuffer, Count);
       nInt := Length(FBuffer);
 
-      if (nInt > 20) or CheckDetail.Checked then //长指令或显示明细
+      if CheckDetail.Checked then //显示明细
       begin
         nStr := '';
         for nIdx:=1 to nInt do
@@ -851,14 +865,17 @@ begin
     end; //未找到完整协议包
 
     //--------------------------------------------------------------------------
-    StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData));
-    Move(nBuf, nData, cSizeData);
-    //复制到协议包,准备分析
-
-    if AdjustProtocol(@nData) then
+    if gTruckManager.VIPTruckInLine(FLineNO, ctDD) then //VIP车辆参与校正
     begin
-      SetString(FBuffer, PChar(@nData.Fsoh), cSizeData);
-      FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+      StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData));
+      Move(nBuf, nData, cSizeData);
+      //复制到协议包,准备分析
+
+      if AdjustProtocol(@nData) then
+      begin
+        SetString(FBuffer, PChar(@nData.Fsoh), cSizeData);
+        FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+      end;
     end;
 
     RedirectData(nItem, nGroup, FData);
@@ -900,11 +917,11 @@ begin
     if nDG < 0.1 then
       nDG := 60 + Random(20);
     //随机补偿灯高
-
-    if nPY < 0.1 then
-      nPY := 0.01;
-    //不合格偏移,引导进入下面校正逻辑
   end;
+
+  if nPY < 0.1 then
+    nPY := 0.01;
+  //不合格偏移,引导进入下面校正逻辑
 
   if (nPY <> 0) and (nDG <> 0) and (not CheckCP.Checked) then
   begin
@@ -912,7 +929,7 @@ begin
     nVal := Float2Float(nVal, 100, True);
     //垂直偏移量
 
-    if (nVal <= 0.70) or ((nVal >= 0.80) and (nVal < 1.5)) then
+    if (nVal <= 0.70) or ((nVal >= 0.80) and (nVal < 2.0)) then
     begin
       nRnd := Random(100);
       while (nRnd = 0) or (nRnd = 100) do
@@ -983,13 +1000,14 @@ begin
     Result := True;
   end; //灯光强度补偿
 
-  {.$IFDEF DEBUG}
-  nStr := '上下:[ ' + nData.Fjud + '] ' +
-          '灯高:[ ' + nData.Fjh + '] ' +
-          '比值:[ ' + nData.Fjp + '] ' +
-          '强度:[ ' + nData.Fyi + ']';
-  WriteLog(nStr);
-  {.$ENDIF}
+  if Result or CheckDetail.Checked then
+  begin
+    nStr := '上下:[ ' + nData.Fjud + '] ' +
+            '灯高:[ ' + nData.Fjh + '] ' +
+            '比值:[ ' + nData.Fjp + '] ' +
+            '强度:[ ' + nData.Fyi + ']';
+    WriteLog(nStr);
+  end;
 end;
 
 //------------------------------------------------------------------------------
@@ -1051,10 +1069,8 @@ begin
     begin
       FData := '';
       FAdj_LastActive := 0;
+      
       RedirectData(nItem, nGroup, sCMD_WQ_TL);
-
-      FDM.LoadTruckList;
-      //载入待检车辆
       Exit;
     end; //调零指令,重置数据
 
@@ -1073,7 +1089,7 @@ begin
     nPos := Length(FData);
     if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
 
-    if FDM.VIPTruckInLine(FLineNO) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNO, ctWQ) then //VIP车辆参与校正
     begin
       nE := nS + cSize_WQ_Data - 1;
       FBuffer := Copy(FData, nS, cSize_WQ_Data);

@@ -25,8 +25,8 @@ object FDM: TFDM
     end
   end
   object XPM1: TXPManifest
-    Left = 121
-    Top = 128
+    Left = 126
+    Top = 127
   end
   object cxLoF1: TcxLookAndFeelController
     Kind = lfOffice11
@@ -37,7 +37,7 @@ object FDM: TFDM
     ProviderName = 'MySQL'
     LoginPrompt = False
     Left = 23
-    Top = 16
+    Top = 19
   end
   object SQLQuery: TUniQuery
     Connection = DBConn1
@@ -46,7 +46,7 @@ object FDM: TFDM
   end
   object Command: TUniQuery
     Connection = DBConn1
-    Left = 126
+    Left = 128
     Top = 68
   end
   object SqlTemp: TUniQuery
@@ -55,7 +55,13 @@ object FDM: TFDM
     Top = 68
   end
   object MySQL1: TMySQLUniProvider
+    Left = 128
+    Top = 19
+  end
+  object DBConn2: TUniConnection
+    ProviderName = 'MySQL'
+    LoginPrompt = False
     Left = 76
-    Top = 16
+    Top = 19
   end
 end
