@@ -1,2 +1,4 @@
 {.$DEFINE DEBUG}
 //调试模式
+{$DEFINE CheckCQCommand}
+//检查抽气指令,若不存在则补发

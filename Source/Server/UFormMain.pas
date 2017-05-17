@@ -16,6 +16,9 @@ uses
   dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls;
 
 type
+  TWQStatus = (wsTL, wsHK, wsHKStop, wsCQ);
+  //尾气业务状态: 调零,环境空气,环境空气停止,抽背景空气
+
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
@@ -50,6 +53,9 @@ type
     FAdj_Val_CO2:Word;
     FAdj_BSE_CO2:Word;            //二氧化碳
     FAdj_LastActive: Int64;       //上次触发
+
+    FWQStatus: TWQStatus;         //业务状态
+    FWQStatusTime: Int64;         //业务时间戳
   end;
 
   PDataItem = ^TDataItem;
@@ -187,6 +193,9 @@ const
   cAdj_Interval    = 1 * 1000 * 60;                  //校正数据有效期
 
   sCMD_WQ_TL      = Char($02) + Char($67) + Char($03) + Char($94); //调零指令
+  sCMD_WQ_CQ      = Char($02) + Char($7B) + Char($03) + Char($80); //抽气指令
+  sCMD_WQ_HK      = Char($02) + Char($7C) + Char($03) + Char($7F); //环境空气
+  sCMD_WQ_Stop    = Char($02) + Char($78) + Char($03) + Char($83); //停止指令
 
 type
   PSplitWord = ^TSplitWord;
@@ -635,6 +644,9 @@ begin
       FCOMObject := nil;
       FAdj_LastActive := 0;
 
+      FWQStatus := wsTL;
+      FWQStatusTime := 0;
+
       if ReadInteger(nList[nIdx], 'Enable', 0) <> 1 then
       begin
         FMemo := '端口禁用';
@@ -657,8 +669,8 @@ begin
 
       with FCOMObject.Timeouts do
       begin
-        ReadTotalConstant := 100;
-        ReadTotalMultiplier := 10;
+        ReadTotalConstant := 1000;
+        ReadTotalMultiplier := 100;
       end;  
     end;
   finally
@@ -1068,6 +1080,7 @@ begin
     if nS > 0 then
     begin
       FData := '';
+      FWQStatus := wsTL;
       FAdj_LastActive := 0;
       
       RedirectData(nItem, nGroup, sCMD_WQ_TL);
@@ -1078,8 +1091,58 @@ begin
     if (nS < 1) and (FData = '') then
     begin
       RedirectData(nItem, nGroup, FBuffer);
+      //非协议数据直接转发
+
+      {$IFDEF CheckCQCommand}
+      if FWQStatus = wsTL then
+      begin
+        nS := Pos(sCMD_WQ_HK, FBuffer);
+        if nS > 0 then
+          FWQStatus := wsHK;
+        //调零后抽环境空气
+      end;
+
+      if FWQStatus = wsHK then
+      begin
+        nS := Pos(sCMD_WQ_Stop, FBuffer);
+        if nS > 0 then
+        begin
+          FWQStatus := wsHKStop;
+          FWQStatusTime := GetTickCount;
+        end; //抽环境空气结束
+      end;
+
+      if FWQStatus = wsHKStop then
+      begin
+        nS := Pos(sCMD_WQ_CQ, FBuffer);
+        if nS > 0 then
+        begin
+          FWQStatus := wsCQ;
+          //抽背景空气
+        end else
+        begin
+          nS := GetTickCount - FWQStatusTime;
+          //环境空气结束后,若2秒后未发送抽气,则补发指令.
+
+          if (nS > 2000) and (nS < 3500) then
+          begin
+            Sleep(500);
+            RedirectData(nItem, nGroup, sCMD_WQ_CQ);
+            Sleep(500);
+
+            FWQStatus := wsCQ;
+            WriteLog(Format('端口:[ %s ]补发抽气指令.', [FItemName]));
+          end;
+
+          if nS >= 3500 then
+            FWQStatus := wsCQ;
+          //超时则取消补发
+        end;
+      end;  
+      {$ENDIF}
+      
       Exit;
-    end; //非协议数据直接转发
+    end; 
 
     FDataLast := GetTickCount;
     FData :=  FData + FBuffer;
@@ -1160,8 +1223,8 @@ begin
 
   with FCOMPorts[nItem] do
   begin
-    nInt := Item2Word(nData.FCO) + Item2Word(nData.FCO2);
-    if nInt < 600 then Exit;
+    //nInt := Item2Word(nData.FCO) + Item2Word(nData.FCO2);
+    //if nInt < 600 then Exit;
     //co2低浓度标识未开始
 
     nInt := Item2Word(nData.FKRB); //空燃比: 0.97<x<1.03
