@@ -118,7 +118,7 @@ var nPos: Integer;
 begin
   Result := Date2Str(Now, False);
   Result := Copy(Result, 5, 4);
-  Result := FloatToStr(StrToInt(Result) / 17);
+  Result := FloatToStr(StrToInt(Result) / 17.7);
 
   nPos := Pos('.', Result);
   if nPos > 0 then

@@ -209,7 +209,6 @@ begin
   gSysLoger.AddLog(TfFormMain, '串口服务', nEvent);
 end;
 
-//------------------------------------------------------------------------------
 function COMType2Str(const nType: TCOMType): string;
 begin
   case nType of
@@ -223,76 +222,6 @@ begin
   if nStr = '1' then
        Result := ctWQ
   else Result := ctDD;
-end;
-
-function GetVerify(const nInit,nDays: Integer): string;
-begin
-  Result := MD5Print(MD5String('QL_' + IntToStr(nInit) + IntToStr(nDays)));
-  Result := Copy(Result, Length(Result) - 5, 6);
-end;
-
-//Date: 2016-09-25
-//Desc: 验证系统是否过期
-function CheckSystemValid(const nIni: TIniFile = nil): Boolean;
-var nStr: string;
-    nCfg: TIniFile;
-    nInit,nLast,nNow: Integer;
-begin
-  if not Assigned(nIni) then
-       nCfg := TIniFile.Create(gPath + 'Config.ini')
-  else nCfg := nIni;
-
-  with nCfg do
-  try
-    nNow := Trunc(Date());
-    nInit := ReadInteger('Config', 'DateFirst', 0);
-    nLast := ReadInteger('Config', 'DateLast', 0);
-
-    nStr := ReadString('Config', 'DateVerify', '');
-    Result := nStr = GetVerify(nInit, nLast - nInit);
-
-    if not Result then
-    begin
-      nStr := ReadString('Config', '1', '');
-      if nStr <> '1' then Exit;
-      //初始化标记不存在
-
-      WriteInteger('Config', 'DateFirst', nNow);
-      //初始化日期
-
-      WriteInteger('Config', 'DateLast', nNow);
-      //最后活动日期
-
-      WriteString('Config', 'DateVerify', GetVerify(nNow, 0));
-      //日期保护
-
-      DeleteKey('Config', '1');
-      Result := True;
-      Exit;
-    end;
-
-    if nLast <> nNow then
-    begin
-      if nLast > nNow then
-      begin
-        Result := False;
-        Exit;
-      end; //日期向前调整,不合规
-
-      nLast := nNow;
-      nStr := GetVerify(nInit, nLast - nInit);
-    
-      WriteInteger('Config', 'DateLast', nLast);
-      WriteString('Config', 'DateVerify', nStr);
-    end; //日期调整
-
-    Result := (nLast - nInit) / 365 < 1;
-    //未满一年
-  finally
-    if not Assigned(nIni) then
-      nCfg.Free;
-    //xxxxx
-  end;
 end;
 
 //------------------------------------------------------------------------------
@@ -321,7 +250,7 @@ begin
   nReg := nil;
   try
     nIni := TIniFile.Create(gPath + 'Config.ini');
-    if not CheckSystemValid(nIni) then
+    if IsSystemExpire(gPath + 'Lock.ini') then
     begin
       dxNavGroup2.Visible := False;
       Exit;
@@ -394,7 +323,8 @@ procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
 var nIni: TIniFile;
     nReg: TRegistry;
 begin
-  gTruckManager.StopMe;
+  if Assigned(gTruckManager) then
+    gTruckManager.StopMe;
   gTruckManager := nil;
   
   nIni := nil;
@@ -456,13 +386,13 @@ end;
 procedure TfFormMain.Timer2Timer(Sender: TObject);
 begin
   Timer2.Tag := Timer2.Tag + 1;
-  if Timer2.Tag < 20 then Exit;
+  if Timer2.Tag < 3600 then Exit;
   Timer2.Tag := 0;
 
   //if FDateLast = Date() then Exit;
   FDateLast := Date();
 
-  if not CheckSystemValid(nil) then
+  if IsSystemExpire(gPath + 'Lock.ini') then
   begin
     Timer2.Enabled := False;
     CheckSrv.Checked := False;
@@ -903,7 +833,7 @@ function TfFormMain.AdjustProtocol(const nData: PDataItem): Boolean;
 var nStr,nSVal: string;
     nIdx,nInt: Integer;
     nYGVerify: Boolean;
-    nPY,nDG,nDQ,nRnd,nVal: Double;
+    nYPY,nJPY,nYDG,nJDG,nDQ,nRnd,nVal: Double;
 begin
   Result := False;
   {$IFDEF DEBUG}
@@ -919,25 +849,33 @@ begin
   nYGVerify := (nDQ < 0.1) and CheckYG.Checked;
   //远光异常校正
 
-  nPY := StrToFloat(nData.Fjud);
+  nJPY := StrToFloat(nData.Fjud);
+  nYPY := StrToFloat(nData.Fyud);
   //上下偏移
-  nDG := StrToFloat(nData.Fjh);
-  //灯高
+  nYDG := StrToFloat(nData.Fjh);
+  //远光灯高
+
+  //----------------------------------------------------------------------------
+  if nJPY < 0.1 then
+    nJPY := 0.01;
+  //不合格偏移,引导进入下面校正逻辑
+  
+  nJDG := 1 - StrToFloat(nData.Fjp);
+  nJDG := Float2Float(nJDG, 100, True);
+  if nJDG <> 0 then
+    nJDG := Float2Float(nJPY / nJDG, 100, True);
+  //进光灯高
   
   if nYGVerify then
   begin
-    if nDG < 0.1 then
-      nDG := 60 + Random(20);
+    if nJDG < 0.1 then
+      nJDG := 60 + Random(20);
     //随机补偿灯高
   end;
 
-  if nPY < 0.1 then
-    nPY := 0.01;
-  //不合格偏移,引导进入下面校正逻辑
-
-  if (nPY <> 0) and (nDG <> 0) and (not CheckCP.Checked) then
+  if (nJPY <> 0) and (nJDG <> 0) and (not CheckCP.Checked) then
   begin
-    nVal := (nDG - nPY) / nDG;
+    nVal := (nJDG - nJPY) / nJDG;
     nVal := Float2Float(nVal, 100, True);
     //垂直偏移量
 
@@ -953,7 +891,7 @@ begin
       nRnd := 0.7 + nRnd / 100;
       //随机值(0.71 - 0.79)
 
-      nVal := nDG - nRnd * nDG;
+      nVal := nJDG - nRnd * nJDG;
       nSVal := Format('%.2f', [nVal]);
       nSVal := '+' + nSVal;
 
@@ -963,7 +901,7 @@ begin
         nSVal := nSVal + StringOfChar('0', nInt-nIdx);
       //xxxxx
 
-      nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
+      nStr := Format('近光垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
                                                Copy(nSVal, 1, nInt)]);
       WriteLog(nStr);
 
@@ -981,6 +919,61 @@ begin
         nData.Fjp[nIdx] := nSVal[nInt];
         Inc(nInt);
       end; //偏移比例
+
+      Result := True;
+    end;
+  end;
+
+  //----------------------------------------------------------------------------
+  if nYGVerify then
+  begin
+    if nYDG < 0.1 then
+      nYDG := 60 + Random(20);
+    //随机补偿灯高
+  end;
+
+  if nYPY < 0.1 then
+    nYPY := 0.01;
+  //不合格偏移,引导进入下面校正逻辑
+
+  if (nYPY <> 0) and (nYDG <> 0) and (not CheckCP.Checked) then
+  begin
+    nVal := (nYDG - nYPY) / nYDG;
+    nVal := Float2Float(nVal, 100, True);
+    //垂直偏移量
+
+    if (nVal < 0.85) or ((nVal > 0.95) and (nVal < 2.0)) then
+    begin
+      nRnd := Random(100);
+      while (nRnd = 0) or (nRnd = 100) do
+        nRnd := Random(100);
+      //xxxxx
+
+      if nRnd >= 10 then
+        nRnd := nRnd / 10;
+      nRnd := 0.85 + nRnd / 100;
+      //随机值(0.85 - 0.95)
+
+      nVal := nYDG - nRnd * nYDG;
+      nSVal := Format('%.2f', [nVal]);
+      nSVal := '+' + nSVal;
+
+      nIdx := Length(nSVal);
+      nInt := Length(nData.Fyud);
+      if nIdx < nInt then
+        nSVal := nSVal + StringOfChar('0', nInt-nIdx);
+      //xxxxx
+
+      nStr := Format('远光垂直偏移:[ %s -> %s ]', [Copy(nData.Fyud, 1, nInt),
+                                               Copy(nSVal, 1, nInt)]);
+      WriteLog(nStr);
+
+      nInt := 1;
+      for nIdx:=Low(nData.Fyud) to High(nData.Fyud) do
+      begin
+        nData.Fyud[nIdx] := nSVal[nInt];
+        Inc(nInt);
+      end; //偏移量
 
       Result := True;
     end;
