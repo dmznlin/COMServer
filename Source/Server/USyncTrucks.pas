@@ -95,6 +95,11 @@ end;
 
 destructor TTruckManager.Destroy;
 begin
+  FreeAndNil(FDBConnDD);
+  FreeAndNil(FDBConnWQ);
+  FreeAndNil(FSQLQuery);
+  FreeAndNil(FSQLCmd);
+  
   FTempVIPTrucks.Free;
   FVIPTrucks.Free;
   FSyncLock.Free;
@@ -168,6 +173,7 @@ var nIni: TIniFile;
         Disconnect;
         ProviderName := 'MySQL';
         SpecificOptions.Values['Charset'] := 'gb2312';
+        //SpecificOptions.Values['Direct'] := 'False';
 
         Server := ReadString(nKey, 'Server', '');
         Port := ReadInteger(nKey, 'Port', 0);
@@ -254,6 +260,7 @@ begin
       FDBConnWQ.Connect;
     //xxxxx
 
+    if FDBConnDD.Connected or FDBConnWQ.Connected then
     try
       DoExecute;
     except
@@ -267,10 +274,10 @@ begin
     end;
   end;
 
-  FDBConnDD.Free;
-  FDBConnWQ.Free;
-  FSQLQuery.Free;
-  FSQLCmd.Free;
+  FreeAndNil(FDBConnDD);
+  FreeAndNil(FDBConnWQ);
+  FreeAndNil(FSQLQuery);
+  FreeAndNil(FSQLCmd);
 end;
 
 procedure TTruckManager.DoExecute;
@@ -400,6 +407,13 @@ begin
 
   FSyncLock.Enter;
   try
+    if (not (Assigned(FDBConnDD) and FDBConnDD.Connected)) and
+       (not (Assigned(FDBConnWQ) and FDBConnWQ.Connected)) then
+    begin
+      Result := True;
+      Exit;
+    end;
+
     Result := FVIPTrucks.IndexOf(MakeVIPTruck) >= 0;
     if Result then Exit;
 

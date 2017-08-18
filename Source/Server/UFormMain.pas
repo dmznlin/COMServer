@@ -833,7 +833,7 @@ function TfFormMain.AdjustProtocol(const nData: PDataItem): Boolean;
 var nStr,nSVal: string;
     nIdx,nInt: Integer;
     nYGVerify: Boolean;
-    nYPY,nJPY,nYDG,nJDG,nDQ,nRnd,nVal: Double;
+    nPY,nDG,nDQ,nRnd,nVal: Double;
 begin
   Result := False;
   {$IFDEF DEBUG}
@@ -849,33 +849,25 @@ begin
   nYGVerify := (nDQ < 0.1) and CheckYG.Checked;
   //远光异常校正
 
-  nJPY := StrToFloat(nData.Fjud);
-  nYPY := StrToFloat(nData.Fyud);
+  nPY := StrToFloat(nData.Fjud);
   //上下偏移
-  nYDG := StrToFloat(nData.Fjh);
-  //远光灯高
-
-  //----------------------------------------------------------------------------
-  if nJPY < 0.1 then
-    nJPY := 0.01;
-  //不合格偏移,引导进入下面校正逻辑
-  
-  nJDG := 1 - StrToFloat(nData.Fjp);
-  nJDG := Float2Float(nJDG, 100, True);
-  if nJDG <> 0 then
-    nJDG := Float2Float(nJPY / nJDG, 100, True);
-  //进光灯高
+  nDG := StrToFloat(nData.Fjh);
+  //灯高
   
   if nYGVerify then
   begin
-    if nJDG < 0.1 then
-      nJDG := 60 + Random(20);
+    if nDG < 0.1 then
+      nDG := 60 + Random(20);
     //随机补偿灯高
   end;
 
-  if (nJPY <> 0) and (nJDG <> 0) and (not CheckCP.Checked) then
+  if nPY < 0.1 then
+    nPY := 0.01;
+  //不合格偏移,引导进入下面校正逻辑
+
+  if (nPY <> 0) and (nDG <> 0) and (not CheckCP.Checked) then
   begin
-    nVal := (nJDG - nJPY) / nJDG;
+    nVal := (nDG - nPY) / nDG;
     nVal := Float2Float(nVal, 100, True);
     //垂直偏移量
 
@@ -891,7 +883,7 @@ begin
       nRnd := 0.7 + nRnd / 100;
       //随机值(0.71 - 0.79)
 
-      nVal := nJDG - nRnd * nJDG;
+      nVal := nDG - nRnd * nDG;
       nSVal := Format('%.2f', [nVal]);
       nSVal := '+' + nSVal;
 
@@ -901,7 +893,7 @@ begin
         nSVal := nSVal + StringOfChar('0', nInt-nIdx);
       //xxxxx
 
-      nStr := Format('近光垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
+      nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.Fjud, 1, nInt),
                                                Copy(nSVal, 1, nInt)]);
       WriteLog(nStr);
 
@@ -919,61 +911,6 @@ begin
         nData.Fjp[nIdx] := nSVal[nInt];
         Inc(nInt);
       end; //偏移比例
-
-      Result := True;
-    end;
-  end;
-
-  //----------------------------------------------------------------------------
-  if nYGVerify then
-  begin
-    if nYDG < 0.1 then
-      nYDG := 60 + Random(20);
-    //随机补偿灯高
-  end;
-
-  if nYPY < 0.1 then
-    nYPY := 0.01;
-  //不合格偏移,引导进入下面校正逻辑
-
-  if (nYPY <> 0) and (nYDG <> 0) and (not CheckCP.Checked) then
-  begin
-    nVal := (nYDG - nYPY) / nYDG;
-    nVal := Float2Float(nVal, 100, True);
-    //垂直偏移量
-
-    if (nVal < 0.85) or ((nVal > 0.95) and (nVal < 2.0)) then
-    begin
-      nRnd := Random(100);
-      while (nRnd = 0) or (nRnd = 100) do
-        nRnd := Random(100);
-      //xxxxx
-
-      if nRnd >= 10 then
-        nRnd := nRnd / 10;
-      nRnd := 0.85 + nRnd / 100;
-      //随机值(0.85 - 0.95)
-
-      nVal := nYDG - nRnd * nYDG;
-      nSVal := Format('%.2f', [nVal]);
-      nSVal := '+' + nSVal;
-
-      nIdx := Length(nSVal);
-      nInt := Length(nData.Fyud);
-      if nIdx < nInt then
-        nSVal := nSVal + StringOfChar('0', nInt-nIdx);
-      //xxxxx
-
-      nStr := Format('远光垂直偏移:[ %s -> %s ]', [Copy(nData.Fyud, 1, nInt),
-                                               Copy(nSVal, 1, nInt)]);
-      WriteLog(nStr);
-
-      nInt := 1;
-      for nIdx:=Low(nData.Fyud) to High(nData.Fyud) do
-      begin
-        nData.Fyud[nIdx] := nSVal[nInt];
-        Inc(nInt);
-      end; //偏移量
 
       Result := True;
     end;
@@ -1216,8 +1153,8 @@ begin
 
   with FCOMPorts[nItem] do
   begin
-    //nInt := Item2Word(nData.FCO) + Item2Word(nData.FCO2);
-    //if nInt < 600 then Exit;
+    nInt := Item2Word(nData.FCO) + Item2Word(nData.FCO2);
+    if nInt < 600 then Exit;
     //co2低浓度标识未开始
 
     nInt := Item2Word(nData.FKRB); //空燃比: 0.97<x<1.03
@@ -1228,6 +1165,7 @@ begin
         FAdj_Val_BS := 990 + Random(30); //1030 - 990 = 40
       //base value
 
+      FAdj_Val_BS := 1005; //1005 -1015
       FAdj_Val_KR := FAdj_Val_BS + Random(10);
       Word2Item(nData.FKRB, FAdj_Val_KR);
 
@@ -1243,7 +1181,8 @@ begin
       if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
          (FAdj_BSE_O2 < 1) then
       begin
-        FAdj_BSE_O2 := 40 + Random(40);  //氧气: 30-90,上下10
+        //FAdj_BSE_O2 := 40 + Random(40);  //氧气: 30-90,上下10
+        FAdj_BSE_O2 := 6; //0.06-0.15
         FAdj_Kpt_O2 := Random(cAdj_KeepLong);
         FAdj_Val_O2 := FAdj_BSE_O2 + Random(10);
       end;
@@ -1262,8 +1201,8 @@ begin
       WriteLog(nStr);
       Word2Item(nData.FO2, FAdj_Val_O2);
 
-      FAdj_BSE_CO2 := 148 + Random(6); //14.8 - 15.4
-      FAdj_Val_CO2 := Trunc((FAdj_BSE_CO2 / 10 - FAdj_Val_O2 / 100) * 100);
+      FAdj_BSE_CO2 := 1465 + Random(15); //14.65 - 14.80
+      FAdj_Val_CO2 := Trunc((FAdj_BSE_CO2 / 100 - FAdj_Val_O2 / 100) * 100);
 
       nStr := Format('二氧化碳(CO2):[ %d -> %d ]', [Item2Word(nData.FCO2), FAdj_Val_CO2]);
       WriteLog(nStr);
