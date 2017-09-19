@@ -16,6 +16,9 @@ uses
   dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls;
 
 type
+  TDDType = (NHD6108, MQD6A);
+  //大灯仪类型: 南华6108,明泉
+
   TWQStatus = (wsTL, wsHK, wsHKStop, wsCQ);
   //尾气业务状态: 调零,环境空气,环境空气停止,抽背景空气
 
@@ -23,6 +26,8 @@ type
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
     FItemType: TCOMType;          //节点类型
+    FDDType: TDDType;             //大灯型号
+
     FLineNO: Integer;             //检测线号
     FPortName: string;            //端口名称
     FBaudRate: TBaudRate;         //波特率
@@ -70,6 +75,22 @@ type
     Fjud    : array[0..4] of Char;    //近光上下偏移
     Fjp     : array[0..3] of Char;    //灯高比值
     Fend    : array[0..0] of Char;    //协议尾
+  end;
+
+  TLightData_6A = record
+    Fsppc   : array[0..4] of Char;    //水平偏差
+    Fczpc   : array[0..4] of Char;    //垂直偏差
+    Fgq     : array[0..3] of Char;    //光强
+    Fdg     : array[0..3] of Char;    //灯高
+  end;
+
+  PDataItem_6A = ^TDataItem_6A;
+  TDataItem_6A = record
+    FHead   : array[0..0] of Char;    //协议头
+    FPos    : array[0..0] of Char;    //左右(L,R)
+    FFar    : TLightData_6A;          //远光
+    FNear   : TLightData_6A;          //近光
+    FCRC    : array[0..0] of Char;    //校验位
   end;
 
   PWQData = ^TWQData;
@@ -160,10 +181,12 @@ type
     //检索数据
     procedure RedirectData(const nItem,nGroup: Integer; const nData: string);
     procedure ParseProtocol(const nItem,nGroup: Integer);
+    procedure ParseProtocol_6A(const nItem,nGroup: Integer);
     procedure ParseWQProtocol(const nItem,nGroup: Integer);
     procedure OnCOMData(Sender: TObject; Count: Integer);
     //数据处理
     function AdjustProtocol(const nData: PDataItem): Boolean;
+    function AdjustProtocol_6A(const nData: PDataItem_6A): Boolean;
     function AdjustWQProtocol(const nItem,nGroup: Integer;
       const nData: PWQData): Boolean;
     //校正数据
@@ -184,6 +207,9 @@ const
   cChar_Head       = Char($01);                       //协议头
   cChar_End        = Char($FF);                       //协议尾
   cSizeData        = SizeOf(TDataItem);               //数据大小
+
+  cChar_Head_6A    = Char($02);                       //协议头
+  cSizeData_6A     = SizeOf(TDataItem_6A);            //数据大小
 
   cChar_WQ_Head    = Char($06)+Char($60)+Char($1B);   //协议头
   cChar_WQ_Head_L  = Length(cChar_WQ_Head);           //头大小
@@ -214,6 +240,14 @@ begin
   case nType of
    ctDD: Result := '大灯仪';
    ctWQ: Result := '尾气检测';
+  end;
+end;
+
+function DDType2Str(const DT: TDDType): string;
+begin
+  case DT of
+   NHD6108 : Result := 'NHD-6108';
+   MQD6A   : Result := 'MQD-6A';
   end;
 end;
 
@@ -464,6 +498,11 @@ begin
     Add('|--- 名称: ' + FItemName);
     Add('|--- 分组: ' + FItemGroup);
     Add('|--- 类型: ' + COMType2Str(FItemType));
+
+    if FItemType = ctDD then
+    Add('|--- 仪器: ' + DDType2Str(FDDType));
+    //xxxxx
+
     Add('|--- 线号: ' + IntToStr(FLineNO));
     Add('|--- 端口: ' + FPortName);
     Add('|--- 速率: ' + BaudRateToStr(FBaudRate));
@@ -542,7 +581,8 @@ end;
 
 //Desc: 读取配置
 procedure TfFormMain.LoadCOMConfig;
-var nIdx: Integer;
+var nStr: string;
+    nIdx: Integer;
     nDef: TCOMItem;
     nIni: TIniFile;
     nList: TStrings;
@@ -562,6 +602,11 @@ begin
       FItemGroup := ReadString(nList[nIdx], 'Group', '');
       FItemType := Str2COMType(ReadString(nList[nIdx], 'Type', '0'));
       FLineNO := ReadInteger(nList[nIdx], 'LineNo', 0);
+
+      nStr := ReadString(nList[nIdx], 'DDModel', 'NHD-6108');
+      if CompareText(nStr, 'MQD-6A') = 0 then
+           FDDType := MQD6A
+      else FDDType := NHD6108;
 
       FPortName  := ReadString(nList[nIdx], 'PortName', '');
       FBaudRate  := StrToBaudRate(ReadString(nList[nIdx], 'BaudRate', '9600'));
@@ -742,6 +787,12 @@ var i,nS,nE,nPos: Integer;
 begin
   with FCOMPorts[nItem] do
   begin
+    if FDDType = MQD6A then //明泉6A
+    begin
+      ParseProtocol_6A(nItem, nGroup);
+      Exit;
+    end;
+
     nE := Length(FData);
     if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
     begin
@@ -948,6 +999,245 @@ begin
             '灯高:[ ' + nData.Fjh + '] ' +
             '比值:[ ' + nData.Fjp + '] ' +
             '强度:[ ' + nData.Fyi + ']';
+    WriteLog(nStr);
+  end;
+end;
+
+//------------------------------------------------------------------------------
+//Date: 2017-09-19
+//Parm: 主灯数据
+//Desc: 校验位,前38位之和取反加1
+function CRC_6A(const nData: string): Char;
+var nIdx,nLen,nVal: Integer;
+begin
+  nVal := 0;
+  nLen := Length(nData) - 1;
+
+  for nIdx:=1 to nLen do
+    nVal := nVal + Ord(nData[nIdx]);
+  //xxxxx
+  
+  nVal := Byte(nVal xor $FF) + 1;
+  Result := Char(nVal);
+end;
+
+//Date: 2017-09-18
+//Parm: 源端口;转发端口
+//Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+procedure TfFormMain.ParseProtocol_6A(const nItem, nGroup: Integer);
+var i,nS,nE,nPos: Integer;
+    nData: TDataItem_6A;
+    nBuf: array[0..cSizeData_6A-1] of Char;
+begin
+  with FCOMPorts[nItem] do
+  begin
+    nE := Length(FData);
+    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      nE := 0;
+    end; //超时数据直接转发
+
+    if nE > cSizeData_6A then
+    begin
+      while nE > 0 do
+      begin
+        nPos := nE;
+        Dec(nE);
+        if FData[nPos] = cChar_Head_6A then Break;
+      end;
+
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
+        System.Delete(FData, 1, nE);
+      end;
+    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
+
+    //--------------------------------------------------------------------------
+    nS := Pos(cChar_Head_6A, FBuffer);
+    if (nS < 1) and (FData = '') then
+    begin
+      RedirectData(nItem, nGroup, FBuffer);
+      Exit;
+    end; //非协议数据直接转发
+
+    FDataLast := GetTickCount;
+    FData :=  FData + FBuffer;
+    //保存数据待分析
+
+    nS := 0;
+    nE := 0;
+    nPos := Length(FData);
+
+    for i:=nPos downto 1 do
+    begin
+      if FData[i] <> cChar_Head_6A then Continue;
+      //not head
+
+      if nPos - i + 1 < 2 then Continue;
+      //not full head
+
+      if (FData[i+1] = 'L') or (FData[i+1] = 'R') then //左右大灯数据
+           nS := i
+      else nS := -1;
+
+      if nS < 0 then Break;
+      //not valid data
+
+      if nPos - i + 1 >= cSizeData_6A then
+      begin
+        nE := i + cSizeData_6A - 1;
+        Break;
+      end;
+    end;
+
+    if (nS < 0) or ((nS < 1) and (nPos >= cSizeData_6A)) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+
+      Exit;
+      //未找到协议包
+    end;
+
+    if nE < 1 then Exit;
+    //未找到完整协议包
+
+    //--------------------------------------------------------------------------
+    if gTruckManager.VIPTruckInLine(FLineNO, ctDD) then //VIP车辆参与校正
+    begin
+      StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData_6A));
+      Move(nBuf, nData, cSizeData_6A);
+      //复制到协议包,准备分析
+
+      if AdjustProtocol_6A(@nData) then
+      begin
+        SetString(FBuffer, PChar(@nData.FHead), cSizeData_6A);
+        FBuffer[cSizeData_6A] := CRC_6A(FBuffer);
+        FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+      end;
+    end;
+
+    RedirectData(nItem, nGroup, FData);
+    FData := '';
+    //发送数据
+  end;
+end;
+
+//Date: 2017-09-18
+//Parm: 协议数据
+//Desc: 分析协议数据,有必要时校正
+function TfFormMain.AdjustProtocol_6A(const nData: PDataItem_6A): Boolean;
+var nStr,nSVal: string;
+    nIdx,nInt: Integer;
+    nYGVerify: Boolean;
+    nPY,nDG,nDQ,nRnd,nVal: Double;
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+  nStr := '上下:[ ' + nData.FNear.Fczpc + '] ' +
+          '灯高:[ ' + nData.FNear.Fdg + '] ' +
+          '强度:[ ' + nData.FNear.Fgq + ']';
+  WriteLog(nStr);
+  {$ENDIF}
+
+  nDQ := StrToFloat(nData.FFar.Fgq);
+  //远光强度
+  nYGVerify := (nDQ < 0.1) and CheckYG.Checked;
+  //远光异常校正
+
+  nPY := StrToFloat(nData.FNear.Fczpc);
+  //上下偏移
+  nDG := StrToFloat(nData.FNear.Fdg);
+  //灯高
+  
+  if nYGVerify then
+  begin
+    if nDG < 0.1 then
+      nDG := 60 + Random(20);
+    //随机补偿灯高
+  end;
+
+  if nPY < 0.1 then
+    nPY := 0.01;
+  //不合格偏移,引导进入下面校正逻辑
+
+  if (nPY <> 0) and (nDG <> 0) and (not CheckCP.Checked) then
+  begin
+    nVal := (nDG - nPY) / nDG;
+    nVal := Float2Float(nVal, 100, True);
+    //垂直偏移量
+
+    if (nVal <= 0.70) or ((nVal >= 0.80) and (nVal < 2.0)) then
+    begin
+      nRnd := Random(100);
+      while (nRnd = 0) or (nRnd = 100) do
+        nRnd := Random(100);
+      //xxxxx
+
+      if nRnd >= 10 then
+        nRnd := nRnd / 10;
+      nRnd := 0.7 + nRnd / 100;
+      //随机值(0.71 - 0.79)
+
+      nVal := nDG - nRnd * nDG;
+      nSVal := Format('%.2f', [nVal]);
+      nSVal := '+' + nSVal;
+
+      nIdx := Length(nSVal);
+      nInt := Length(nData.FNear.Fczpc);
+      if nIdx < nInt then
+        nSVal := nSVal + StringOfChar('0', nInt-nIdx);
+      //xxxxx
+
+      nStr := Format('垂直偏移:[ %s -> %s ]', [Copy(nData.FNear.Fczpc, 1, nInt),
+                                               Copy(nSVal, 1, nInt)]);
+      WriteLog(nStr);
+
+      nInt := 1;
+      for nIdx:=Low(nData.FNear.Fczpc) to High(nData.FNear.Fczpc) do
+      begin
+        nData.FNear.Fczpc[nIdx] := nSVal[nInt];
+        Inc(nInt);
+      end; //偏移量
+
+      Result := True;
+    end;
+  end;
+
+  //----------------------------------------------------------------------------
+  if (not CheckGQ.Checked) and (nYGVerify or (
+     (nDQ > FYGMinValue / 100) and (nDQ < 150))) then
+  begin
+    nDQ := 150 + Random(50);
+    nSVal := FloatToStr(nDQ);
+
+    nInt := Length(nData.FNear.Fgq) - Length(nSVal);
+    if nInt > 0 then
+      nSVal := StringOfChar('0', nInt) + nSVal;
+    //xxxxx
+
+    nInt := Length(nData.FNear.Fgq);
+    nStr := Format('灯光补偿:[ %s -> %s ]', [Copy(nData.FNear.Fgq, 1, nInt),
+                                             Copy(nSVal, 1, nInt)]);
+    WriteLog(nStr);
+
+    nInt := 1;
+    for nIdx:=Low(nData.FNear.Fgq) to High(nData.FNear.Fgq) do
+    begin
+      nData.FNear.Fgq[nIdx] := nSVal[nInt];
+      Inc(nInt);
+    end;
+    Result := True;
+  end; //灯光强度补偿
+
+  if Result or CheckDetail.Checked then
+  begin
+    nStr := '上下:[ ' + nData.FNear.Fczpc + '] ' +
+            '灯高:[ ' + nData.FNear.Fdg + '] ' +
+            '强度:[ ' + nData.FNear.Fgq + ']';
     WriteLog(nStr);
   end;
 end;
