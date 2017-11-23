@@ -6,7 +6,7 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   UDataModule, cxGraphics, cxControls, cxLookAndFeels,
   cxLookAndFeelPainters, Menus, cxContainer, cxEdit, cxTextEdit, cxMemo,
-  dxLayoutControl, StdCtrls, cxButtons;
+  dxLayoutControl, StdCtrls, cxButtons, cxCheckBox;
 
 type
   TfFormMemo = class(TForm)
@@ -17,9 +17,11 @@ type
     dxLayoutControl1Item1: TdxLayoutItem;
     BtnExit: TcxButton;
     dxLayoutControl1Item2: TdxLayoutItem;
-    dxLayoutControl1Group2: TdxLayoutGroup;
     EditTrucks: TcxMemo;
     dxLayoutControl1Item3: TdxLayoutItem;
+    Check1: TcxCheckBox;
+    dxLayoutControl1Item4: TdxLayoutItem;
+    dxLayoutControl1Group3: TdxLayoutGroup;
     procedure BtnOKClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -96,7 +98,7 @@ end;
 
 procedure TfFormMemo.BtnOKClick(Sender: TObject);
 var nStr: string;
-    nIdx: Integer;
+    nIdx,nAllow: Integer;
 begin
   EditTrucks.Text := Trim(EditTrucks.Text);
   if EditTrucks.Lines.Count < 1 then
@@ -116,13 +118,18 @@ begin
       Exit;
     end;
 
+    if Check1.Checked then
+         nAllow := 0
+    else nAllow := 1;
+
     for nIdx:=0 to FTrucks.Count - 1 do
     begin
       nStr := MakeSQLByStr([
               SF('t_truck', FTrucks[nIdx]),
               SF('t_user', gLocalName),
               SF('t_time', 'now()', sfVal),
-              SF('t_valid', 0, sfVal)
+              SF('t_valid', 0, sfVal),
+              SF('t_allow', nAllow, sfVal)
               ], sTable_Truck, '', True);
       FDM.ExecuteSQL(nStr);
     end;

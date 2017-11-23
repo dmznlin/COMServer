@@ -14,7 +14,7 @@ uses
   StdCtrls, cxButtons, dxLayoutControl, cxTextEdit, cxGridLevel, cxClasses,
   cxGridCustomView, cxGridCustomTableView, cxGridTableView,
   cxGridDBTableView, cxGrid, MemDS, DBAccess, Uni, cxNavigator, ExtCtrls,
-  cxPC, dxStatusBar, cxGroupBox, cxMaskEdit, cxButtonEdit;
+  cxPC, dxStatusBar, cxGroupBox, cxMaskEdit, cxButtonEdit, cxImageComboBox;
 
 type
   TfFormClient = class(TForm)
@@ -86,6 +86,7 @@ type
     cxLabel3: TcxLabel;
     dxLayoutControl1Item14: TdxLayoutItem;
     BtnSave2: TcxButton;
+    cxView2Column5: TcxGridDBColumn;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;

@@ -188,7 +188,7 @@ type
     function AdjustProtocol(const nData: PDataItem): Boolean;
     function AdjustProtocol_6A(const nData: PDataItem_6A): Boolean;
     function AdjustWQProtocol(const nItem,nGroup: Integer;
-      const nData: PWQData): Boolean;
+      const nData: PWQData; const nInBlack: Boolean): Boolean;
     //校正数据
   public
     { Public declarations }
@@ -1265,6 +1265,7 @@ end;
 procedure TfFormMain.ParseWQProtocol(const nItem, nGroup: Integer);
 var nS,nE,nPos,nIdx: Integer;
     nData: TWQData;
+    nInBlack: Boolean;
     nBuf: array[0..cSize_WQ_Data-1] of Char;
 begin
   with FCOMPorts[nItem] do
@@ -1372,7 +1373,7 @@ begin
     nPos := Length(FData);
     if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
 
-    if gTruckManager.VIPTruckInLine(FLineNO, ctWQ) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNO, ctWQ, @nInBlack) then //VIP车辆参与校正
     begin
       nE := nS + cSize_WQ_Data - 1;
       FBuffer := Copy(FData, nS, cSize_WQ_Data);
@@ -1383,7 +1384,7 @@ begin
       //复制到协议包,准备分析
 
       //if (nData.FCRC = MakeCRC(FBuffer, nS, nE-1)) then
-      if AdjustWQProtocol(nItem, nGroup, @nData) then
+      if AdjustWQProtocol(nItem, nGroup, @nData, nInBlack) then
       begin
         SetString(FBuffer, PChar(@nData.FHead), cSize_WQ_Data);
         FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
@@ -1414,10 +1415,10 @@ begin
 end;
 
 //Date: 2016-10-08
-//Parm: 源端口;转发端口;协议数据
+//Parm: 源端口;转发端口;协议数据;黑名单
 //Desc: 分析协议数据,有必要时校正
 function TfFormMain.AdjustWQProtocol(const nItem,nGroup: Integer;
-  const nData: PWQData): Boolean;
+  const nData: PWQData; const nInBlack: Boolean): Boolean;
 var nStr: string;
     nInt: Integer;
 begin
@@ -1447,8 +1448,59 @@ begin
     if nInt < 600 then Exit;
     //co2低浓度标识未开始
 
-    nInt := Item2Word(nData.FKRB); //空燃比: 0.97<x<1.03
-    if (nInt >= 1030) or ((nInt <= 970) and (nInt >= 700)) then 
+    if nInBlack then //黑名单业务
+    begin
+      nInt := Item2Word(nData.FCO);
+      if nInt < 60 then //碳氧: 60<x<150
+      begin
+        if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+           (FAdj_Val_CO < 1) then
+        begin
+          FAdj_Kpt_CO := Random(cAdj_KeepLong);
+          FAdj_Val_CO := 60 + Random(90);
+        
+          if FAdj_Val_CO < 125 then
+               FAdj_Dir_CO := True
+          else FAdj_Dir_CO := False;
+        end;
+
+        if FAdj_Kpt_CO < 1 then
+        begin
+          FAdj_Kpt_CO := Random(cAdj_KeepLong);
+          //xxxxx
+        
+          if FAdj_Dir_CO then
+               FAdj_Val_CO := FAdj_Val_CO + Random(3)
+          else FAdj_Val_CO := FAdj_Val_CO - Random(3);
+        end else Dec(FAdj_Kpt_CO);
+
+        if FAdj_Val_CO >= 150 then
+        begin
+          FAdj_Val_CO := 149;
+          FAdj_Dir_CO := False;
+        end;
+
+        if FAdj_Val_CO <= 60 then
+        begin
+          FAdj_Val_CO := 61;
+          FAdj_Dir_CO := True;
+        end;
+
+        Word2Item(nData.FCO, FAdj_Val_CO);
+        Result := True;
+
+        nStr := Format('碳氧(CO):[ %d -> %d ]', [nInt, FAdj_Val_CO]);
+        WriteLog(nStr);
+      end;
+
+      FAdj_LastActive := GetTickCount;
+      //upate time stamp
+      Exit;
+    end;
+
+    //--------------------------------------------------------------------------
+    nInt := Item2Word(nData.FKRB); //空燃比: 0.97<x<1.02
+    if (nInt >= 1020) or ((nInt <= 970) and (nInt >= 700)) then 
     begin
       if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
          (FAdj_Val_BS < 1) then

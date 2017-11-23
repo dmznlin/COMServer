@@ -1,8 +1,8 @@
 object fFormMemo: TfFormMemo
   Left = 634
   Top = 350
-  Width = 380
-  Height = 412
+  Width = 425
+  Height = 416
   BorderIcons = [biSystemMenu, biMinimize]
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,30 +19,30 @@ object fFormMemo: TfFormMemo
   object dxLayoutControl1: TdxLayoutControl
     Left = 0
     Top = 0
-    Width = 372
-    Height = 385
+    Width = 417
+    Height = 389
     Align = alClient
     TabOrder = 0
     TabStop = False
     AutoContentSizes = [acsWidth, acsHeight]
     LookAndFeel = FDM.dxLayoutWeb1
     object BtnOK: TcxButton
-      Left = 226
-      Top = 352
+      Left = 271
+      Top = 356
       Width = 65
       Height = 22
       Caption = #20445#23384
-      TabOrder = 1
+      TabOrder = 2
       OnClick = BtnOKClick
     end
     object BtnExit: TcxButton
-      Left = 296
-      Top = 352
+      Left = 341
+      Top = 356
       Width = 65
       Height = 22
       Caption = #21462#28040
       ModalResult = 2
-      TabOrder = 2
+      TabOrder = 3
     end
     object EditTrucks: TcxMemo
       Left = 23
@@ -53,6 +53,15 @@ object fFormMemo: TfFormMemo
       TabOrder = 0
       Height = 89
       Width = 185
+    end
+    object Check1: TcxCheckBox
+      Left = 11
+      Top = 356
+      Caption = #21152#20837#40657#21517#21333
+      ParentFont = False
+      TabOrder = 1
+      Transparent = True
+      Width = 116
     end
     object dxLayoutControl1Group_Root: TdxLayoutGroup
       ShowCaption = False
@@ -71,20 +80,30 @@ object fFormMemo: TfFormMemo
           ControlOptions.ShowBorder = False
         end
       end
-      object dxLayoutControl1Group2: TdxLayoutGroup
+      object dxLayoutControl1Group3: TdxLayoutGroup
         AutoAligns = [aaVertical]
-        AlignHorz = ahRight
+        AlignHorz = ahClient
         ShowCaption = False
         Hidden = True
         LayoutDirection = ldHorizontal
         ShowBorder = False
+        object dxLayoutControl1Item4: TdxLayoutItem
+          Caption = 'cxCheckBox1'
+          ShowCaption = False
+          Control = Check1
+          ControlOptions.ShowBorder = False
+        end
         object dxLayoutControl1Item1: TdxLayoutItem
+          AutoAligns = [aaVertical]
+          AlignHorz = ahRight
           Caption = 'cxButton1'
           ShowCaption = False
           Control = BtnOK
           ControlOptions.ShowBorder = False
         end
         object dxLayoutControl1Item2: TdxLayoutItem
+          AutoAligns = [aaVertical]
+          AlignHorz = ahRight
           Caption = 'cxButton2'
           ShowCaption = False
           Control = BtnExit

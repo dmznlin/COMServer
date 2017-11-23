@@ -58,7 +58,8 @@ type
     function LoadDBConfig: Boolean;
     procedure LoadTruckToList(const nList: TStrings);
     //读取数据
-    function VIPTruckInLine(const nLine: Integer; const nType: TCOMType): Boolean;
+    function VIPTruckInLine(const nLine: Integer; const nType: TCOMType;
+      const nInBlack: PBoolean = nil): Boolean;
     //车辆在线
   end;
 
@@ -291,7 +292,7 @@ begin
        FSQLQuery.Connection := FDBConnWQ
   else FSQLQuery.Connection := FDBConnDD; //切换链路
 
-  nStr := 'select t_truck from %s where t_valid=0 order by id asc';
+  nStr := 'select t_truck,t_allow from %s where t_valid=0 order by id asc';
   FSQLQuery.SQL.Text := Format(nStr, [sTable_Truck]);
   FSQLQuery.Open;
 
@@ -302,7 +303,8 @@ begin
 
     while not Eof do
     begin
-      FTempVIPTrucks.Add(Fields[0].AsString);
+      nIdx := Fields[1].AsInteger;
+      FTempVIPTrucks.AddObject(Fields[0].AsString, Pointer(nIdx));
       Next;
     end;
   end;
@@ -375,7 +377,8 @@ begin
   //----------------------------------------------------------------------------
   FSyncLock.Enter;
   try
-    FVIPTrucks.Text := FTempVIPTrucks.Text;
+    FVIPTrucks.Clear;
+    FVIPTrucks.AddStrings(FTempVIPTrucks);
     //combin vip list
 
     for nIdx:=Low(FTrucks) to High(FTrucks) do
@@ -394,12 +397,16 @@ begin
 end;
 
 //Date: 2016-10-15
-//Parm: 工位线号;业务类型
+//Parm: 工位线号;业务类型;是否黑名单
 //Desc: 检查nLine线的当前车辆是否在VIP车辆列表中
 function TTruckManager.VIPTruckInLine(const nLine: Integer;
-  const nType: TCOMType): Boolean;
-var nIdx: Integer;
+  const nType: TCOMType; const nInBlack: PBoolean): Boolean;
+var i,nIdx: Integer;
 begin
+  if Assigned(nInBlack) then
+    nInBlack^ := False;
+  //init
+  
   {$IFDEF DEBUG}
   Result := True;
   Exit;
@@ -421,7 +428,11 @@ begin
     with FTrucks[nIdx] do
     if FEnable and (FType = nType) and (FLine = nLine) then
     begin
-      Result := FVIPTrucks.IndexOf(FTruck) >= 0;
+      i := FVIPTrucks.IndexOf(FTruck);
+      Result := i >= 0;
+
+      if Result and Assigned(nInBlack) then
+        nInBlack^ := Integer(FVIPTrucks.Objects[nIdx]) = 0;
       Exit;
     end;
   finally
