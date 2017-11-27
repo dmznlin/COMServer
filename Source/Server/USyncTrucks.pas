@@ -134,7 +134,7 @@ end;
 
 procedure TTruckManager.LoadTruckToList(const nList: TStrings);
 var nStr: string;
-    nIdx: Integer;
+    i,nIdx: Integer;
 begin
   FSyncLock.Enter;
   try
@@ -143,18 +143,31 @@ begin
     with FTrucks[nIdx] do
     begin
       if not FEnable then Continue;
-      if FVIPTrucks.IndexOf(FTruck) >= 0 then
-           nStr := 'VIP'
-      else nStr := '';
+      i := FVIPTrucks.IndexOf(FTruck);
 
-      nStr := Format('|--- %d.%s [%s %d线]', [nIdx+1, FTruck, nStr, FLine]);
+      if i >= 0 then
+      begin
+        i := Integer(FVIPTrucks.Objects[i]);
+        if i = 0 then
+             nStr := '黑名单'
+        else nStr := 'VIP';
+      end else nStr := '';
+
+      nStr := Format('|--- %2d.%-6s [%s %d线]', [nIdx+1, FTruck, nStr, FLine]);
       nList.Add(nStr);
     end;
 
     nList.Add(#13#10 + 'VIP车辆:');
     for nIdx:=0 to FVIPTrucks.Count-1 do
-      nList.Add('|--- ' + IntToStr(nIdx+1) + '.' + FVIPTrucks[nIdx]);
-    //xxxxx
+    begin
+      i := Integer(FVIPTrucks.Objects[nIdx]);
+      if i = 0 then
+           nStr := '黑名单'
+      else nStr := 'VIP';
+
+      nStr := Format('|--- %2d.%-6s [%s]', [nIdx+1, FVIPTrucks[nIdx], nStr]);
+      nList.Add(nStr);
+    end;
   finally
     FSyncLock.Leave;
   end;
@@ -174,7 +187,7 @@ var nIni: TIniFile;
         Disconnect;
         ProviderName := 'MySQL';
         SpecificOptions.Values['Charset'] := 'gb2312';
-        //SpecificOptions.Values['Direct'] := 'False';
+        SpecificOptions.Values['Direct'] := 'False';
 
         Server := ReadString(nKey, 'Server', '');
         Port := ReadInteger(nKey, 'Port', 0);
@@ -432,7 +445,7 @@ begin
       Result := i >= 0;
 
       if Result and Assigned(nInBlack) then
-        nInBlack^ := Integer(FVIPTrucks.Objects[nIdx]) = 0;
+        nInBlack^ := Integer(FVIPTrucks.Objects[i]) = 0;
       Exit;
     end;
   finally

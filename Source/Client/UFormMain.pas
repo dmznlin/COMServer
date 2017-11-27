@@ -253,6 +253,7 @@ begin
         Disconnect;
         ProviderName := 'MySQL';
         SpecificOptions.Values['Charset'] := 'gb2312';
+        SpecificOptions.Values['Direct'] := 'False';
 
         Server := EditIP.Text;
         Port := StrToInt(EditPort.Text);

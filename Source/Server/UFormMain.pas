@@ -1451,15 +1451,15 @@ begin
     if nInBlack then //黑名单业务
     begin
       nInt := Item2Word(nData.FCO);
-      if nInt < 60 then //碳氧: 60<x<150
+      if nInt < 60 then //碳氧: 60<x<130
       begin
         if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
            (FAdj_Val_CO < 1) then
         begin
           FAdj_Kpt_CO := Random(cAdj_KeepLong);
-          FAdj_Val_CO := 60 + Random(90);
+          FAdj_Val_CO := 60 + Random(70);
         
-          if FAdj_Val_CO < 125 then
+          if FAdj_Val_CO < 95 then
                FAdj_Dir_CO := True
           else FAdj_Dir_CO := False;
         end;
@@ -1474,9 +1474,9 @@ begin
           else FAdj_Val_CO := FAdj_Val_CO - Random(3);
         end else Dec(FAdj_Kpt_CO);
 
-        if FAdj_Val_CO >= 150 then
+        if FAdj_Val_CO >= 130 then
         begin
-          FAdj_Val_CO := 149;
+          FAdj_Val_CO := 129;
           FAdj_Dir_CO := False;
         end;
 
@@ -1524,9 +1524,9 @@ begin
          (FAdj_BSE_O2 < 1) then
       begin
         //FAdj_BSE_O2 := 40 + Random(40);  //氧气: 30-90,上下10
-        FAdj_BSE_O2 := 6; //0.06-0.15
+        FAdj_BSE_O2 := 8; //0.08-0.4
         FAdj_Kpt_O2 := Random(cAdj_KeepLong);
-        FAdj_Val_O2 := FAdj_BSE_O2 + Random(10);
+        FAdj_Val_O2 := FAdj_BSE_O2 + Random(32);
       end;
 
       if FAdj_Kpt_O2 < 1 then
@@ -1535,8 +1535,8 @@ begin
         //xxxxx
 
         if Random(10) mod 2 = 0 then
-             FAdj_Val_O2 := FAdj_BSE_O2 + Random(10)
-        else FAdj_Val_O2 := FAdj_BSE_O2 - Random(10);
+             FAdj_Val_O2 := FAdj_BSE_O2 + Random(32)
+        else FAdj_Val_O2 := FAdj_BSE_O2 - Random(32);
       end else Dec(FAdj_Kpt_O2);
 
       nStr := Format('氧气(O2):[ %d -> %d ]', [Item2Word(nData.FO2), FAdj_Val_O2]);
