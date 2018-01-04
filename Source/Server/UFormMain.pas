@@ -1451,15 +1451,15 @@ begin
     if nInBlack then //黑名单业务
     begin
       nInt := Item2Word(nData.FCO);
-      if nInt < 60 then //碳氧: 60<x<130
+      if nInt < 50 then //碳氧: 50<x<120
       begin
         if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
            (FAdj_Val_CO < 1) then
         begin
           FAdj_Kpt_CO := Random(cAdj_KeepLong);
-          FAdj_Val_CO := 60 + Random(70);
+          FAdj_Val_CO := 50 + Random(70);
         
-          if FAdj_Val_CO < 95 then
+          if FAdj_Val_CO < 85 then
                FAdj_Dir_CO := True
           else FAdj_Dir_CO := False;
         end;
@@ -1474,15 +1474,15 @@ begin
           else FAdj_Val_CO := FAdj_Val_CO - Random(3);
         end else Dec(FAdj_Kpt_CO);
 
-        if FAdj_Val_CO >= 130 then
+        if FAdj_Val_CO >= 120 then
         begin
-          FAdj_Val_CO := 129;
+          FAdj_Val_CO := 119;
           FAdj_Dir_CO := False;
         end;
 
-        if FAdj_Val_CO <= 60 then
+        if FAdj_Val_CO <= 50 then
         begin
-          FAdj_Val_CO := 61;
+          FAdj_Val_CO := 51;
           FAdj_Dir_CO := True;
         end;
 
