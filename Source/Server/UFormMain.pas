@@ -922,17 +922,17 @@ begin
     nVal := Float2Float(nVal, 100, True);
     //´¹Ö±Æ«ÒÆÁ¿
 
-    if (nVal <= 0.70) or ((nVal >= 0.80) and (nVal < 2.0)) then
+    if (nVal <= 0.70) or ((nVal >= 0.90) and (nVal < 2.0)) then
     begin
-      nRnd := Random(100);
-      while (nRnd = 0) or (nRnd = 100) do
-        nRnd := Random(100);
+      nRnd := Random(200);
+      while (nRnd = 0) or (nRnd = 200) do
+        nRnd := Random(200);
       //xxxxx
 
       if nRnd >= 10 then
         nRnd := nRnd / 10;
       nRnd := 0.7 + nRnd / 100;
-      //Ëæ»úÖµ(0.71 - 0.79)
+      //Ëæ»úÖµ(0.71 - 0.89)
 
       nVal := nDG - nRnd * nDG;
       nSVal := Format('%.2f', [nVal]);
@@ -1450,46 +1450,86 @@ begin
 
     if nInBlack then //ºÚÃûµ¥ÒµÎñ
     begin
-      nInt := Item2Word(nData.FCO);
-      if nInt < 50 then //Ì¼Ñõ: 50<x<120
+      nInt := Item2Word(nData.FHC);
+      if nInt < 120 then //Ì¼Çâ: 120<x<300
       begin
         if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
-           (FAdj_Val_CO < 1) then
+           (FAdj_Val_HC < 1) then
         begin
-          FAdj_Kpt_CO := Random(cAdj_KeepLong);
-          FAdj_Val_CO := 50 + Random(70);
-        
-          if FAdj_Val_CO < 85 then
-               FAdj_Dir_CO := True
-          else FAdj_Dir_CO := False;
+          FAdj_Kpt_HC := Random(cAdj_KeepLong);
+          FAdj_Val_HC := 120 + Random(180);
+
+          if FAdj_Val_HC < 210 then
+               FAdj_Dir_HC := True
+          else FAdj_Dir_HC := False;
         end;
 
-        if FAdj_Kpt_CO < 1 then
+        if FAdj_Kpt_HC < 1 then
         begin
-          FAdj_Kpt_CO := Random(cAdj_KeepLong);
+          FAdj_Kpt_HC := Random(cAdj_KeepLong);
           //xxxxx
-        
-          if FAdj_Dir_CO then
-               FAdj_Val_CO := FAdj_Val_CO + Random(3)
-          else FAdj_Val_CO := FAdj_Val_CO - Random(3);
-        end else Dec(FAdj_Kpt_CO);
 
-        if FAdj_Val_CO >= 120 then
+          if FAdj_Dir_HC then
+               FAdj_Val_HC := FAdj_Val_HC + Random(3)
+          else FAdj_Val_HC := FAdj_Val_HC - Random(3);
+        end else Dec(FAdj_Kpt_HC);
+
+        if FAdj_Val_HC >= 300 then
         begin
-          FAdj_Val_CO := 119;
-          FAdj_Dir_CO := False;
+          FAdj_Val_HC := 299;
+          FAdj_Dir_HC := False;
         end;
 
-        if FAdj_Val_CO <= 50 then
+        if FAdj_Val_HC < 120 then
         begin
-          FAdj_Val_CO := 51;
-          FAdj_Dir_CO := True;
+          FAdj_Val_HC := 120;
+          FAdj_Dir_HC := True;
         end;
 
-        Word2Item(nData.FCO, FAdj_Val_CO);
+        Word2Item(nData.FHC, FAdj_Val_HC);
         Result := True;
 
-        nStr := Format('Ì¼Ñõ(CO):[ %d -> %d ]', [nInt, FAdj_Val_CO]);
+        nStr := Format('Ì¼Çâ(HC):[ %d -> %d ]', [nInt, FAdj_Val_HC]);
+        WriteLog(nStr);
+      end;
+
+      nInt := Item2Word(nData.FNO);
+      if nInt < 1000 then //µªÑõ:1000<x<3000
+      begin
+        if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
+           (FAdj_Val_NO < 1) then
+        begin
+          FAdj_Kpt_NO := Random(cAdj_KeepLong);
+          FAdj_Val_NO := 1000 + Random(2000);
+          FAdj_Dir_NO := not FAdj_Dir_HC;
+        end;
+
+        if FAdj_Kpt_NO < 1 then
+        begin
+          FAdj_Kpt_NO := Random(cAdj_KeepLong);
+          //xxxxx
+
+          if FAdj_Dir_NO then
+               FAdj_Val_NO := FAdj_Val_NO + Random(20)
+          else FAdj_Val_NO := FAdj_Val_NO - Random(20);
+        end else Dec(FAdj_Kpt_NO);
+
+        if FAdj_Val_NO >= 3000 then
+        begin
+          FAdj_Val_NO := 2999;
+          FAdj_Dir_NO := False;
+        end;
+
+        if FAdj_Val_NO < 1000 then
+        begin
+          FAdj_Val_NO := 1000;
+          FAdj_Dir_NO := True;
+        end;
+
+        Word2Item(nData.FNO, FAdj_Val_NO);
+        Result := True;
+
+        nStr := Format('µªÑõ(NO):[ %d -> %d ]', [nInt, FAdj_Val_NO]);
         WriteLog(nStr);
       end;
 
