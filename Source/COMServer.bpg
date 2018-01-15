@@ -9,7 +9,7 @@ MAKE = $(ROOT)\bin\make.exe -$(MAKEFLAGS) -f$**
 DCC = $(ROOT)\bin\dcc32.exe $**
 BRCC = $(ROOT)\bin\brcc32.exe $**
 #------------------------------------------------------------------------------
-PROJECTS = COMServer.exe Client.exe
+PROJECTS = COMServer.exe Client.exe SpeedMon.exe SpeedSrv.exe
 #------------------------------------------------------------------------------
 default: $(PROJECTS)
 #------------------------------------------------------------------------------
@@ -18,6 +18,12 @@ COMServer.exe: Server\COMServer.dpr
   $(DCC)
 
 Client.exe: Client\Client.dpr
+  $(DCC)
+
+SpeedMon.exe: SpeedMon\SpeedMon.dpr
+  $(DCC)
+
+SpeedSrv.exe: SpeedMon\SpeedSrv.dpr
   $(DCC)
 
 

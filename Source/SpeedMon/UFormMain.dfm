@@ -3,8 +3,8 @@ object fFormMain: TfFormMain
   Top = 349
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
-  ClientHeight = 437
-  ClientWidth = 574
+  ClientHeight = 449
+  ClientWidth = 587
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -20,8 +20,8 @@ object fFormMain: TfFormMain
   TextHeight = 12
   object SBar1: TStatusBar
     Left = 0
-    Top = 418
-    Width = 574
+    Top = 430
+    Width = 587
     Height = 19
     Panels = <
       item
@@ -34,9 +34,9 @@ object fFormMain: TfFormMain
   object wPage1: TPageControl
     Left = 0
     Top = 80
-    Width = 574
-    Height = 338
-    ActivePage = Sheet2
+    Width = 587
+    Height = 350
+    ActivePage = Sheet1
     Align = alClient
     MultiLine = True
     Style = tsFlatButtons
@@ -46,8 +46,8 @@ object fFormMain: TfFormMain
       object MemoLog: TMemo
         Left = 0
         Top = 22
-        Width = 566
-        Height = 286
+        Width = 579
+        Height = 298
         Align = alClient
         ImeName = #35895#27468#25340#38899#36755#20837#27861' 2'
         ScrollBars = ssBoth
@@ -56,19 +56,43 @@ object fFormMain: TfFormMain
       object Panel1: TPanel
         Left = 0
         Top = 0
-        Width = 566
+        Width = 579
         Height = 22
         Align = alTop
         BevelOuter = bvNone
         TabOrder = 1
+        DesignSize = (
+          579
+          22)
         object CheckSrv: TCheckBox
           Left = 2
           Top = 2
           Width = 97
           Height = 17
-          Caption = #25968#25454#26657#27491
+          Caption = #21551#29992#25968#25454#26657#27491
           TabOrder = 0
           OnClick = CheckSrvClick
+        end
+        object CheckDetail: TCheckBox
+          Left = 482
+          Top = 2
+          Width = 97
+          Height = 17
+          Anchors = [akTop, akRight]
+          Caption = #26174#31034#25968#25454#26126#32454
+          TabOrder = 1
+        end
+        object CheckShowLog: TCheckBox
+          Left = 394
+          Top = 2
+          Width = 80
+          Height = 17
+          Anchors = [akTop, akRight]
+          Caption = #26174#31034#26085#24535
+          Checked = True
+          State = cbChecked
+          TabOrder = 2
+          OnClick = CheckShowLogClick
         end
       end
     end
@@ -76,12 +100,12 @@ object fFormMain: TfFormMain
       Caption = #21442#25968#35774#32622
       ImageIndex = 1
       DesignSize = (
-        566
-        308)
+        579
+        320)
       object Group2: TGroupBox
         Left = 5
         Top = 80
-        Width = 554
+        Width = 567
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #28909#38190
@@ -114,7 +138,7 @@ object fFormMain: TfFormMain
       object Group1: TGroupBox
         Left = 5
         Top = 5
-        Width = 554
+        Width = 567
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #22522#26412
@@ -164,7 +188,7 @@ object fFormMain: TfFormMain
       object Group3: TGroupBox
         Left = 5
         Top = 155
-        Width = 554
+        Width = 567
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #26631#35782
@@ -209,27 +233,27 @@ object fFormMain: TfFormMain
       object Group4: TGroupBox
         Left = 5
         Top = 230
-        Width = 554
+        Width = 567
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #26657#27491
         TabOrder = 3
         object Label1: TLabel
-          Left = 121
+          Left = 117
           Top = 42
           Width = 6
           Height = 12
           Caption = '-'
         end
         object Label2: TLabel
-          Left = 387
+          Left = 389
           Top = 42
           Width = 6
           Height = 12
           Caption = '-'
         end
         object EditMaxRange2: TLabeledEdit
-          Left = 135
+          Left = 127
           Top = 38
           Width = 100
           Height = 20
@@ -251,7 +275,7 @@ object fFormMain: TfFormMain
           OnChange = EditHotKey1Change
         end
         object EditRange3: TLabeledEdit
-          Left = 280
+          Left = 285
           Top = 38
           Width = 100
           Height = 20
@@ -278,7 +302,7 @@ object fFormMain: TfFormMain
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 574
+    Width = 587
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -288,7 +312,7 @@ object fFormMain: TfFormMain
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 353
+      Width = 366
       Height = 80
       Align = alClient
       AutoSize = True
@@ -959,9 +983,10 @@ object fFormMain: TfFormMain
         FEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFE
         808F}
       Stretch = True
+      OnClick = Image1Click
     end
     object Image2: TImage
-      Left = 353
+      Left = 366
       Top = 0
       Width = 221
       Height = 80
@@ -1581,20 +1606,25 @@ object fFormMain: TfFormMain
   end
   object Timer1: TTimer
     OnTimer = Timer1Timer
-    Left = 236
-    Top = 34
+    Left = 248
+    Top = 20
   end
   object HotKey1: THotKeyManager
     OnHotKeyPressed = HotKey1HotKeyPressed
-    Left = 208
-    Top = 34
+    Left = 248
+    Top = 48
   end
   object UDPSrv1: TIdUDPServer
     BroadcastEnabled = True
     Bindings = <>
     DefaultPort = 0
     OnUDPRead = UDPSrv1UDPRead
-    Left = 264
-    Top = 34
+    Left = 276
+    Top = 48
+  end
+  object Timer2: TTimer
+    OnTimer = Timer2Timer
+    Left = 276
+    Top = 20
   end
 end

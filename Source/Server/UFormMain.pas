@@ -1451,15 +1451,15 @@ begin
     if nInBlack then //黑名单业务
     begin
       nInt := Item2Word(nData.FHC);
-      if nInt < 120 then //碳氢: 120<x<300
+      if nInt < 120 then //碳氢: 180<x<360
       begin
         if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
            (FAdj_Val_HC < 1) then
         begin
           FAdj_Kpt_HC := Random(cAdj_KeepLong);
-          FAdj_Val_HC := 120 + Random(180);
+          FAdj_Val_HC := 180 + Random(180);
 
-          if FAdj_Val_HC < 210 then
+          if FAdj_Val_HC < 270 then
                FAdj_Dir_HC := True
           else FAdj_Dir_HC := False;
         end;
@@ -1474,15 +1474,15 @@ begin
           else FAdj_Val_HC := FAdj_Val_HC - Random(3);
         end else Dec(FAdj_Kpt_HC);
 
-        if FAdj_Val_HC >= 300 then
+        if FAdj_Val_HC >= 360 then
         begin
-          FAdj_Val_HC := 299;
+          FAdj_Val_HC := 359;
           FAdj_Dir_HC := False;
         end;
 
-        if FAdj_Val_HC < 120 then
+        if FAdj_Val_HC < 180 then
         begin
-          FAdj_Val_HC := 120;
+          FAdj_Val_HC := 180;
           FAdj_Dir_HC := True;
         end;
 
