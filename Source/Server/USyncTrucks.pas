@@ -14,6 +14,8 @@ uses
 type
   TCOMType = (ctDD, ctWQ);
   //类型: 大灯仪,尾气检测仪
+  TWQCheckType = (CTvmas, CTsds, CTlugdown, CTzyjs, CTUnknown);
+  //尾气检测方式: vams,双怠速,加载减速,自由加速,不支持
 
   TTruckItem = record
     FEnable: Boolean;          //是否有效
@@ -21,6 +23,7 @@ type
 
     FTruck: string;            //车牌号
     FLine: Integer;            //检测线
+    FCheckType: TWQCheckType;  //尾气检测
   end;
 
   TTruckItems = array of TTruckItem;
@@ -133,7 +136,7 @@ begin
 end;
 
 procedure TTruckManager.LoadTruckToList(const nList: TStrings);
-var nStr: string;
+var nStr,nCheck: string;
     i,nIdx: Integer;
 begin
   FSyncLock.Enter;
@@ -153,7 +156,18 @@ begin
         else nStr := 'VIP';
       end else nStr := '';
 
-      nStr := Format('|--- %2d.%-6s [%s %d线]', [nIdx+1, FTruck, nStr, FLine]);
+      if FCheckType = CTvmas then
+        nCheck := 'VMAS' else
+      if FCheckType = CTsds then
+        nCheck := '双怠速' else
+      if FCheckType = CTlugdown then
+        nCheck := '加载减速' else
+      if FCheckType = CTzyjs then
+        nCheck := '自由加速'
+      else nCheck := '未知';
+
+      nStr := Format('|--- %2d.%-6s [%-4s %2d线 %-8s]', [nIdx+1, FTruck,
+              nStr, FLine, nCheck]);
       nList.Add(nStr);
     end;
 
@@ -331,7 +345,7 @@ begin
     FSQLQuery.Close;
     FSQLQuery.Connection := FDBConnWQ; //切换链路
 
-    nStr := 'select car_num,goline from %s order by id asc';
+    nStr := 'select car_num,goline,car_item from %s order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_WQTruck]);
     FSQLQuery.Open; //尾气待检车辆
 
@@ -346,8 +360,18 @@ begin
         with FTempTrucks[nIdx] do
         begin
           FType := ctWQ;
-          FTruck := Fields[0].AsString;
+          FTruck := Trim(Fields[0].AsString);
           FLine := Fields[1].AsInteger;
+
+          nStr := Trim(Fields[2].AsString);
+          if CompareText(nStr, '00080000FF') = 0 then
+            FCheckType := CTvmas else
+          if CompareText(nStr, '00020000FF') = 0 then
+            FCheckType := CTsds else
+          if CompareText(nStr, '00400000FF') = 0 then
+            FCheckType := CTlugdown else
+          if CompareText(nStr, '00200000FF') = 0 then
+            FCheckType := CTzyjs else FCheckType := CTUnknown;
         end;
 
         Inc(nIdx);

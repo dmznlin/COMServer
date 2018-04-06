@@ -33,9 +33,6 @@ type
     { Public declarations }
   end;
 
-var
-  gLocalName: string = '';
-
 function ShowMemoForm: Boolean;
 //Èë¿Úº¯Êý
 

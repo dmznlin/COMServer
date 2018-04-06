@@ -11,12 +11,9 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   UMonitor, USysConst, IdGlobal, IdSocketHandle, CPort, CPortTypes,
   IdBaseComponent, IdComponent, IdUDPBase, IdUDPServer, UHotKeyManager,
-  ExtCtrls, StdCtrls, ComCtrls;
+  ExtCtrls, StdCtrls, ComCtrls, IdTCPConnection, IdTCPClient;
 
 type
-  TDeviceType = (dtStation, dtDevice);
-  //设备类型: 上位机;下位机
-
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
@@ -70,6 +67,7 @@ type
     Timer2: TTimer;
     CheckDetail: TCheckBox;
     CheckShowLog: TCheckBox;
+    IdTCPClient1: TIdTCPClient;
     procedure Timer1Timer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -95,6 +93,10 @@ type
     FRandomNum: Integer;
     FRandomBase: Integer;
     //随机控制
+    FLineNo: string;
+    FRemoteHost: string;
+    FRemotePort: Integer;
+    //远程服务
     FServer: THostItem;
     FSweetHeartBase: Integer;
     //控制台相关
@@ -172,6 +174,9 @@ end;
 
 procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  gMonManager.StopMon;
+  //stop mon thread
+  
   if FConfigChanged then
     SystemConfig(False);
   //xxxxx
@@ -179,6 +184,79 @@ begin
   UDPSrv1.Active := False;
   CheckSrv.Checked := False;
   FreeAndNil(FListA);
+end;
+
+//Date: 2018-04-06
+//Desc: 载入运行状态关键字
+procedure StatusFlagConfig(const nIni: TIniFile);
+const cSection = 'StatusFlag';
+var nStr: string; 
+    nList: TStrings;
+    nIdx,nLen: Integer;
+    nStatus: TMonStatus;
+begin
+  nList := TStringList.Create;
+  try
+    nLen := 0;
+    SetLength(gStatusFlags, nLen);
+    nIni.ReadSection(cSection, nList);
+
+    for nIdx:=nList.Count-1 downto 0 do
+    begin
+      nStatus := msNoRun;
+      nStr := UpperCase(nList[nIdx]);
+
+      if Pos('2K5', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := ms2K5;
+      end else
+
+      if Pos('3K5', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := ms3K5;
+      end else
+
+      if Pos('VSTART', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msVStart;
+      end else
+
+      if Pos('VRUN', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msVRun;
+      end else
+
+      if Pos('VEND', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msVEnd;
+      end else
+      
+      if Pos('VERROR', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msVError;
+      end else Continue;
+
+      if nStatus <> msNoRun then
+      begin
+        nLen := Length(gStatusFlags);
+        SetLength(gStatusFlags, nLen+1);
+
+        with gStatusFlags[nLen] do
+        begin
+          FStatus := nStatus;
+          FKeyWord := nStr;
+        end;
+      end;
+    end;
+  finally
+    nList.Free;
+  end;   
 end;
 
 //Date: 2018-01-11
@@ -225,6 +303,13 @@ begin
       EditMaxRange2.Text := ReadString('Config', 'DataMaxRange2', '2200-2800');
       EditRange3.Text := ReadString('Config', 'DataRange3', '3400-3600');
       EditMaxRange3.Text := ReadString('Config', 'DataMaxRange3', '3200-3800');
+
+      FLineNo := ReadString('Config', 'LineNo', '0');
+      FRemoteHost := ReadString('Config', 'RemoteHost', '127.0.0.1');
+      FRemotePort := ReadInteger('Config', 'RemotePort', 8080);
+
+      StatusFlagConfig(nIni);
+      //run status keyword
 
       nReg := TRegistry.Create;
       nReg.RootKey := HKEY_CURRENT_USER;
@@ -446,6 +531,10 @@ begin
   if ComportAction(True) then
     Timer2.Enabled := False;
   //open ports
+
+  gMonManager.StartMon(EditExe.Text, EditWin.Text, EditContent.Text,
+    FRemoteHost, IntToStr(FRemotePort), FLineNo);
+  //start mon
 end;
 
 procedure TfFormMain.AddClientInfo(const nClient: TStrings);
@@ -534,10 +623,6 @@ begin
 
   Group3.Enabled := not CheckSrv.Checked;
   Group4.Enabled := not CheckSrv.Checked;
-
-  if CheckSrv.Checked then
-       gMonManager.StartMon(EditExe.Text, EditWin.Text, EditContent.Text)
-  else gMonManager.StopMon;
 end;
 
 procedure TfFormMain.CheckShowLogClick(Sender: TObject);

@@ -87,6 +87,24 @@ type
     dxLayoutControl1Item14: TdxLayoutItem;
     BtnSave2: TcxButton;
     cxView2Column5: TcxGridDBColumn;
+    cxTabSheet1: TcxTabSheet;
+    cxGrid3: TcxGrid;
+    cxView3: TcxGridDBTableView;
+    cxGridDBColumn1: TcxGridDBColumn;
+    cxGridDBColumn2: TcxGridDBColumn;
+    cxGridDBColumn3: TcxGridDBColumn;
+    cxGridDBColumn4: TcxGridDBColumn;
+    cxLevel3: TcxGridLevel;
+    UniQuery3: TUniQuery;
+    DataSource3: TDataSource;
+    cxGroupBox3: TcxGroupBox;
+    BtnAddSimple: TcxButton;
+    BtnDelSimple: TcxButton;
+    BtnFreshSimple: TcxButton;
+    BtnHasDelSimple: TcxButton;
+    cxLabel4: TcxLabel;
+    cxButtonEdit1: TcxButtonEdit;
+    cxView3Column1: TcxGridDBColumn;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;
@@ -100,19 +118,26 @@ type
     procedure EditFindPropertiesButtonClick(Sender: TObject;
       AButtonIndex: Integer);
     procedure EditFindKeyPress(Sender: TObject; var Key: Char);
+    procedure BtnFreshSimpleClick(Sender: TObject);
+    procedure BtnHasDelSimpleClick(Sender: TObject);
+    procedure BtnAddSimpleClick(Sender: TObject);
+    procedure BtnDelSimpleClick(Sender: TObject);
   private
     { Private declarations }
     FUserPasswd: string;
     //用户密码
     FLoadValidTruck: Boolean;
+    FLoadValidSimple: Boolean;
     //载入标记
     procedure LoadFormConfig;
     procedure LoadDBConfig(const nRead: Boolean; const nIni: TIniFile = nil);
     //读取配置
     procedure RefreshTruckList;
     procedure RefreshVIPTruckList(nHasDel: Boolean = False; nWhere: string = '');
+    procedure RefreshSimpleList(nHasDel: Boolean = False; nWhere: string = '');
     //读取数据
-    function GetVal(const nRow: Integer; const nField: string): string;
+    function GetVal(const nRow: Integer; const nField: string;
+      nView: TcxGridDBTableView = nil): string;
     //字段数据
   public
     { Public declarations }
@@ -127,7 +152,7 @@ implementation
 
 uses
   ULibFun, USysDB, USysLoger, UBase64, UcxChinese, USysGrid, USysMAC,
-  UFormInputbox, UFormMemo;
+  UFormInputbox, UFormMemo, UFormSimple;
 
 //------------------------------------------------------------------------------
 procedure TfFormClient.FormCreate(Sender: TObject);
@@ -152,6 +177,7 @@ begin
     SaveFormConfig(Self, nIni);
     SaveUserDefineTableView(Name, cxView1, nIni);
     SaveUserDefineTableView(Name, cxView2, nIni);
+    SaveUserDefineTableView(Name, cxView3, nIni);
   finally
     nIni.Free;
   end;
@@ -168,10 +194,12 @@ begin
     ULibFun.LoadFormConfig(Self, nIni);
     InitTableView(Name, cxView1, nIni);
     InitTableView(Name, cxView2, nIni);
+    InitTableView(Name, cxView3, nIni);
 
     LoadDBConfig(True, nIni);
     RefreshTruckList;
     RefreshVIPTruckList;
+    RefreshSimpleList;
   finally
     nIni.Free;
   end;
@@ -206,6 +234,25 @@ begin
   UniQuery2.Close;
   UniQuery2.SQL.Text := nStr;
   UniQuery2.Open;
+end;
+
+procedure TfFormClient.RefreshSimpleList(nHasDel: Boolean; nWhere: string);
+var nStr: string;
+begin
+  FLoadValidSimple := not nHasDel;
+  nStr := 'Select * from %s Where t_valid=%d %s Order By id';
+
+  if nWhere <> '' then
+    nWhere := Format('And (%s)', [nWhere]);
+  //xxxxx
+
+  if nHasDel then
+       nStr := Format(nStr, [sTable_Simple, 1, nWhere])
+  else nStr := Format(nStr, [sTable_Simple, 0, nWhere]);
+
+  UniQuery3.Close;
+  UniQuery3.SQL.Text := nStr;
+  UniQuery3.Open;
 end;
 
 procedure TfFormClient.LoadDBConfig(const nRead: Boolean; const nIni: TIniFile);
@@ -329,12 +376,16 @@ end;
 
 //Desc: 获取nRow行nField字段的内容
 function TfFormClient.GetVal(const nRow: Integer;
- const nField: string): string;
+ const nField: string; nView: TcxGridDBTableView): string;
 var nVal: Variant;
 begin
-  nVal := cxView2.DataController.GetValue(
-            cxView2.Controller.SelectedRows[nRow].RecordIndex,
-            cxView2.GetColumnByFieldName(nField).Index);
+  if not Assigned(nView) then
+    nView := cxView2;
+  //xxxxx
+
+  nVal := nView.DataController.GetValue(
+            nView.Controller.SelectedRows[nRow].RecordIndex,
+            nView.GetColumnByFieldName(nField).Index);
   //xxxxx
 
   if VarIsNull(nVal) then
@@ -398,6 +449,52 @@ begin
     Key := #0;
     EditFindPropertiesButtonClick(nil, 0);
   end;
+end;
+
+//------------------------------------------------------------------------------
+procedure TfFormClient.BtnFreshSimpleClick(Sender: TObject);
+begin
+  RefreshSimpleList;
+end;
+
+procedure TfFormClient.BtnHasDelSimpleClick(Sender: TObject);
+begin
+  RefreshSimpleList(True);
+end;
+
+procedure TfFormClient.BtnAddSimpleClick(Sender: TObject);
+begin
+  if ShowSimpleForm then RefreshSimpleList();
+end;
+
+procedure TfFormClient.BtnDelSimpleClick(Sender: TObject);
+var nStr: string;
+    nIdx,nLen: Integer;
+begin
+  if cxView3.DataController.GetSelectedCount < 1 then
+  begin
+    ShowMsg('请选择要删除的记录', sHint); Exit;
+  end;
+
+  if not QueryDlg('确定删除选中的记录吗?', '') then Exit;
+  nLen := cxView3.DataController.GetSelectedCount - 1;
+  
+  for nIdx:=0 to nLen do
+  begin
+    if FLoadValidSimple then
+    begin
+      nStr := 'update %s set t_valid=1,t_user=''%s'',t_time=now() where id=%s';
+      nStr := Format(nStr, [sTable_Simple, gLocalName, GetVal(nIdx, 'id', cxView3)]);
+    end else
+    begin
+      nStr := 'delete from %s where id=%s';
+      nStr := Format(nStr, [sTable_Simple, GetVal(nIdx, 'id', cxView3)]);
+    end;
+
+    FDM.ExecuteSQL(nStr);
+  end;
+
+  RefreshSimpleList(not FLoadValidSimple);
 end;
 
 end.

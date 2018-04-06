@@ -1,6 +1,6 @@
 object fFormClient: TfFormClient
-  Left = 441
-  Top = 297
+  Left = 682
+  Top = 332
   Width = 704
   Height = 558
   BorderIcons = [biSystemMenu, biMinimize]
@@ -33,7 +33,7 @@ object fFormClient: TfFormClient
     Top = 80
     Width = 696
     Height = 431
-    ActivePage = Sheet3
+    ActivePage = cxTabSheet1
     Align = alClient
     TabOrder = 1
     OnPageChanging = wPagePageChanging
@@ -436,6 +436,129 @@ object fFormClient: TfFormClient
           Transparent = True
         end
         object EditFind: TcxButtonEdit
+          Left = 375
+          Top = 23
+          ParentFont = False
+          Properties.Buttons = <
+            item
+              Default = True
+              Kind = bkEllipsis
+            end>
+          Properties.OnButtonClick = EditFindPropertiesButtonClick
+          TabOrder = 5
+          OnKeyPress = EditFindKeyPress
+          Width = 121
+        end
+      end
+    end
+    object cxTabSheet1: TcxTabSheet
+      Caption = #26679#26412#25968#25454
+      ImageIndex = 3
+      object cxGrid3: TcxGrid
+        Left = 0
+        Top = 0
+        Width = 696
+        Height = 353
+        Align = alClient
+        BorderStyle = cxcbsNone
+        TabOrder = 0
+        object cxView3: TcxGridDBTableView
+          NavigatorButtons.ConfirmDelete = False
+          DataController.DataSource = DataSource3
+          DataController.Summary.DefaultGroupSummaryItems = <>
+          DataController.Summary.FooterSummaryItems = <>
+          DataController.Summary.SummaryGroups = <>
+          OptionsSelection.MultiSelect = True
+          object cxGridDBColumn1: TcxGridDBColumn
+            Caption = #35760#24405#32534#21495
+            DataBinding.FieldName = 'ID'
+          end
+          object cxView3Column1: TcxGridDBColumn
+            Caption = #26816#27979#27969#27700
+            DataBinding.FieldName = 't_jcxh'
+          end
+          object cxGridDBColumn2: TcxGridDBColumn
+            Caption = #36710#29260#21495
+            DataBinding.FieldName = 't_truck'
+          end
+          object cxGridDBColumn3: TcxGridDBColumn
+            Caption = #25805#20316#20154
+            DataBinding.FieldName = 't_user'
+          end
+          object cxGridDBColumn4: TcxGridDBColumn
+            Caption = #25805#20316#26102#38388
+            DataBinding.FieldName = 't_time'
+          end
+        end
+        object cxLevel3: TcxGridLevel
+          GridView = cxView3
+        end
+      end
+      object cxGroupBox3: TcxGroupBox
+        Left = 0
+        Top = 353
+        Align = alBottom
+        Caption = #24037#20855
+        PanelStyle.Active = True
+        PanelStyle.OfficeBackgroundKind = pobkGradient
+        ParentFont = False
+        Style.Edges = []
+        Style.TransparentBorder = True
+        TabOrder = 1
+        Height = 55
+        Width = 696
+        object BtnAddSimple: TcxButton
+          Left = 170
+          Top = 22
+          Width = 65
+          Height = 22
+          Caption = #28155#21152
+          TabOrder = 0
+          OnClick = BtnAddSimpleClick
+          LookAndFeel.NativeStyle = False
+          LookAndFeel.SkinName = ''
+        end
+        object BtnDelSimple: TcxButton
+          Left = 10
+          Top = 22
+          Width = 65
+          Height = 22
+          Caption = #21024#38500
+          TabOrder = 1
+          OnClick = BtnDelSimpleClick
+          LookAndFeel.NativeStyle = False
+          LookAndFeel.SkinName = ''
+        end
+        object BtnFreshSimple: TcxButton
+          Left = 238
+          Top = 22
+          Width = 65
+          Height = 22
+          Caption = #21047#26032
+          TabOrder = 2
+          OnClick = BtnFreshSimpleClick
+          LookAndFeel.NativeStyle = False
+          LookAndFeel.SkinName = ''
+        end
+        object BtnHasDelSimple: TcxButton
+          Left = 78
+          Top = 22
+          Width = 65
+          Height = 22
+          Caption = #26597#35810#21024#38500
+          TabOrder = 3
+          OnClick = BtnHasDelSimpleClick
+          LookAndFeel.NativeStyle = False
+          LookAndFeel.SkinName = ''
+        end
+        object cxLabel4: TcxLabel
+          Left = 340
+          Top = 25
+          Caption = #26597#25214':'
+          ParentFont = False
+          Transparent = True
+        end
+        object cxButtonEdit1: TcxButtonEdit
           Left = 375
           Top = 23
           ParentFont = False
@@ -1774,6 +1897,16 @@ object fFormClient: TfFormClient
   object DataSource2: TDataSource
     DataSet = UniQuery2
     Left = 334
+    Top = 49
+  end
+  object UniQuery3: TUniQuery
+    Connection = FDM.DBConn1
+    Left = 364
+    Top = 49
+  end
+  object DataSource3: TDataSource
+    DataSet = UniQuery3
+    Left = 392
     Top = 49
   end
 end

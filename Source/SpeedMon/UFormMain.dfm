@@ -3,8 +3,8 @@ object fFormMain: TfFormMain
   Top = 349
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
-  ClientHeight = 449
-  ClientWidth = 587
+  ClientHeight = 465
+  ClientWidth = 628
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -20,8 +20,8 @@ object fFormMain: TfFormMain
   TextHeight = 12
   object SBar1: TStatusBar
     Left = 0
-    Top = 430
-    Width = 587
+    Top = 446
+    Width = 628
     Height = 19
     Panels = <
       item
@@ -34,8 +34,8 @@ object fFormMain: TfFormMain
   object wPage1: TPageControl
     Left = 0
     Top = 80
-    Width = 587
-    Height = 350
+    Width = 628
+    Height = 366
     ActivePage = Sheet1
     Align = alClient
     MultiLine = True
@@ -46,8 +46,8 @@ object fFormMain: TfFormMain
       object MemoLog: TMemo
         Left = 0
         Top = 22
-        Width = 579
-        Height = 298
+        Width = 620
+        Height = 314
         Align = alClient
         ImeName = #35895#27468#25340#38899#36755#20837#27861' 2'
         ScrollBars = ssBoth
@@ -56,13 +56,13 @@ object fFormMain: TfFormMain
       object Panel1: TPanel
         Left = 0
         Top = 0
-        Width = 579
+        Width = 620
         Height = 22
         Align = alTop
         BevelOuter = bvNone
         TabOrder = 1
         DesignSize = (
-          579
+          620
           22)
         object CheckSrv: TCheckBox
           Left = 2
@@ -74,7 +74,7 @@ object fFormMain: TfFormMain
           OnClick = CheckSrvClick
         end
         object CheckDetail: TCheckBox
-          Left = 482
+          Left = 523
           Top = 2
           Width = 97
           Height = 17
@@ -83,7 +83,7 @@ object fFormMain: TfFormMain
           TabOrder = 1
         end
         object CheckShowLog: TCheckBox
-          Left = 394
+          Left = 435
           Top = 2
           Width = 80
           Height = 17
@@ -100,12 +100,12 @@ object fFormMain: TfFormMain
       Caption = #21442#25968#35774#32622
       ImageIndex = 1
       DesignSize = (
-        579
-        320)
+        620
+        336)
       object Group2: TGroupBox
         Left = 5
         Top = 80
-        Width = 567
+        Width = 608
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #28909#38190
@@ -138,7 +138,7 @@ object fFormMain: TfFormMain
       object Group1: TGroupBox
         Left = 5
         Top = 5
-        Width = 567
+        Width = 608
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #22522#26412
@@ -188,7 +188,7 @@ object fFormMain: TfFormMain
       object Group3: TGroupBox
         Left = 5
         Top = 155
-        Width = 567
+        Width = 608
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #26631#35782
@@ -233,7 +233,7 @@ object fFormMain: TfFormMain
       object Group4: TGroupBox
         Left = 5
         Top = 230
-        Width = 567
+        Width = 608
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #26657#27491
@@ -302,7 +302,7 @@ object fFormMain: TfFormMain
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 587
+    Width = 628
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -312,7 +312,7 @@ object fFormMain: TfFormMain
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 366
+      Width = 407
       Height = 80
       Align = alClient
       AutoSize = True
@@ -986,7 +986,7 @@ object fFormMain: TfFormMain
       OnClick = Image1Click
     end
     object Image2: TImage
-      Left = 366
+      Left = 407
       Top = 0
       Width = 221
       Height = 80
@@ -1626,5 +1626,13 @@ object fFormMain: TfFormMain
     OnTimer = Timer2Timer
     Left = 276
     Top = 20
+  end
+  object IdTCPClient1: TIdTCPClient
+    ConnectTimeout = 0
+    IPVersion = Id_IPv4
+    Port = 0
+    ReadTimeout = -1
+    Left = 306
+    Top = 50
   end
 end

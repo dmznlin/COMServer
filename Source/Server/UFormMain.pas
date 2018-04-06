@@ -9,11 +9,12 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  USyncTrucks, CPort, CPortTypes, UTrayIcon, cxGraphics, cxControls,
-  cxLookAndFeels, cxLookAndFeelPainters, cxContainer, cxEdit, IdContext,
-  ExtCtrls, IdBaseComponent, IdComponent, IdCustomTCPServer, IdTCPServer,
-  StdCtrls, cxMaskEdit, cxDropDownEdit, cxTextEdit, cxLabel, cxCheckBox,
-  dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls;
+  USyncTrucks, CPort, CPortTypes, UTrayIcon, UMonitor, SyncObjs, UBase64,
+  cxControls, cxLookAndFeels, cxLookAndFeelPainters, cxContainer, cxEdit,
+  IdContext, ExtCtrls, IdBaseComponent, IdComponent, IdCustomTCPServer,
+  IdTCPServer, StdCtrls, cxMaskEdit, cxDropDownEdit, cxTextEdit, cxLabel,
+  cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls,
+  cxGraphics;
 
 type
   TDDType = (NHD6108, MQD6A);
@@ -22,13 +23,32 @@ type
   TWQStatus = (wsTL, wsHK, wsHKStop, wsCQ);
   //尾气业务状态: 调零,环境空气,环境空气停止,抽背景空气
 
+  PWQData = ^TWQData;
+  TWQData = record
+    FHead   : array[0..2] of Char;    //协议头
+    FCO2    : array[0..1] of Char;    //co2
+    FCO     : array[0..1] of Char;    //co
+    FHC     : array[0..1] of Char;    //碳氢
+    FNO     : array[0..1] of Char;    //氮氧
+    FO2     : array[0..1] of Char;    //氧气
+    FSD     : array[0..1] of Char;    //湿度
+    FYW     : array[0..1] of Char;    //油温
+    FHJWD   : array[0..1] of Char;    //环境温度
+    FZS     : array[0..1] of Char;    //转速
+    FQLYL   : array[0..1] of Char;    //气路压力
+    FKRB    : array[0..1] of Char;    //空燃比
+    FHJYL   : array[0..1] of Char;    //环境压力
+    FCRC    : array[0..0] of Char;    //校验位
+  end;
+  TWQDataList = array of TWQData;
+
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
     FItemType: TCOMType;          //节点类型
     FDDType: TDDType;             //大灯型号
 
-    FLineNO: Integer;             //检测线号
+    FLineNo: Integer;             //检测线号
     FPortName: string;            //端口名称
     FBaudRate: TBaudRate;         //波特率
     FDataBits: TDataBits;         //数据位
@@ -61,6 +81,11 @@ type
 
     FWQStatus: TWQStatus;         //业务状态
     FWQStatusTime: Int64;         //业务时间戳
+
+    FDeviceType: TDeviceType;     //设备类型
+    FGWStatus: TMonStatus;        //工位状态
+    FGWDataList: TWQDataList;     //样本数据
+    FGWDataIndex: Integer;        //发送数据索引
   end;
 
   PDataItem = ^TDataItem;
@@ -90,24 +115,6 @@ type
     FPos    : array[0..0] of Char;    //左右(L,R)
     FFar    : TLightData_6A;          //远光
     FNear   : TLightData_6A;          //近光
-    FCRC    : array[0..0] of Char;    //校验位
-  end;
-
-  PWQData = ^TWQData;
-  TWQData = record
-    FHead   : array[0..2] of Char;    //协议头
-    FCO2    : array[0..1] of Char;    //co2
-    FCO     : array[0..1] of Char;    //co
-    FHC     : array[0..1] of Char;    //碳氢
-    FNO     : array[0..1] of Char;    //氮氧
-    FO2     : array[0..1] of Char;    //氧气
-    FSD     : array[0..1] of Char;    //湿度
-    FYW     : array[0..1] of Char;    //油温
-    FHJWD   : array[0..1] of Char;    //环境温度
-    FZS     : array[0..1] of Char;    //转速
-    FQLYL   : array[0..1] of Char;    //气路压力
-    FKRB    : array[0..1] of Char;    //空燃比
-    FHJYL   : array[0..1] of Char;    //环境压力
     FCRC    : array[0..0] of Char;    //校验位
   end;
 
@@ -160,6 +167,8 @@ type
     { Private declarations }
     FTrayIcon: TTrayIcon;
     {*状态栏图标*}
+    FSyncLock: TCriticalSection;
+    //同步锁定
     FYGMinValue: Integer;
     //远光强度
     FUserPasswd: string;
@@ -270,6 +279,9 @@ begin
 
   gSysLoger := TSysLoger.Create(gPath + 'Logs\');
   gSysLoger.LogEvent := ShowLog;
+
+  FSyncLock := TCriticalSection.Create;
+  //sync lock
 
   CheckLoged.Checked := True;
   {$IFNDEF DEBUG}  
@@ -390,6 +402,7 @@ begin
     nReg.Free;
   end;
 
+  FreeAndNil(FSyncLock);
   FreeAndNil(FListA);
 end;
 
@@ -503,7 +516,7 @@ begin
     Add('|--- 仪器: ' + DDType2Str(FDDType));
     //xxxxx
 
-    Add('|--- 线号: ' + IntToStr(FLineNO));
+    Add('|--- 线号: ' + IntToStr(FLineNo));
     Add('|--- 端口: ' + FPortName);
     Add('|--- 速率: ' + BaudRateToStr(FBaudRate));
     Add('|--- 数位: ' + DataBitsToStr(FDataBits));
@@ -575,8 +588,49 @@ begin
 end;
 
 procedure TfFormMain.DoExecute(const nContext: TIdContext);
+var nStr: string;
+    nList: TStrings;
+    nIdx,nInt: Integer;
+    nStatus: TMonStatus;
 begin
-  //
+  nList := TStringList.Create;
+  try
+    nList.Text := DecodeBase64(nContext.Connection.IOHandler.ReadLn());
+    nStr := Trim(nList.Values['LineNo']);
+    
+    if not IsNumber(nStr, False) then Exit;
+    nInt := StrToInt(nStr);
+
+    FSyncLock.Enter;
+    try
+      for nIdx:=Low(FCOMPorts) to High(FCOMPorts) do
+      with FCOMPorts[nIdx] do
+      begin
+        if (FLineNo <> nInt) or (FDeviceType <> dtDevice) then Continue;
+        //同线,下位机上行数据时校正
+
+        nStr := nList.Values['Status'];
+        if not IsNumber(nStr, False) then Continue;
+        nInt := StrToInt(nStr);
+        
+        if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msVError)) then
+        begin
+          nStatus := TMonStatus(nInt);
+          if nStatus <> FCOMPorts[nIdx].FGWStatus then
+          begin
+            FCOMPorts[nIdx].FGWStatus := nStatus;
+            nStr := Format('状态切换: %d线 -> %s', [FCOMPorts[nIdx].FLineNo,
+                    MonStatusToStr(nStatus)]);
+            WriteLog(nStr);
+          end;
+        end;
+      end;
+    finally
+      FSyncLock.Leave;
+    end;
+  finally
+    nList.Free;
+  end;
 end;
 
 //Desc: 读取配置
@@ -601,7 +655,7 @@ begin
       FItemName  := ReadString(nList[nIdx], 'Name', '');
       FItemGroup := ReadString(nList[nIdx], 'Group', '');
       FItemType := Str2COMType(ReadString(nList[nIdx], 'Type', '0'));
-      FLineNO := ReadInteger(nList[nIdx], 'LineNo', 0);
+      FLineNo := ReadInteger(nList[nIdx], 'LineNo', 0);
 
       nStr := ReadString(nList[nIdx], 'DDModel', 'NHD-6108');
       if CompareText(nStr, 'MQD-6A') = 0 then
@@ -621,6 +675,13 @@ begin
 
       FWQStatus := wsTL;
       FWQStatusTime := 0;
+
+      FGWStatus := msNoRun;
+      SetLength(FGWDataList, 0);
+      FGWDataIndex := 0;
+
+      FDeviceType := TDeviceType(ReadInteger(nList[nIdx], 'DeviceType', 0));
+      //设备类型
 
       if ReadInteger(nList[nIdx], 'Enable', 0) <> 1 then
       begin
@@ -858,7 +919,7 @@ begin
     end; //未找到完整协议包
 
     //--------------------------------------------------------------------------
-    if gTruckManager.VIPTruckInLine(FLineNO, ctDD) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNo, ctDD) then //VIP车辆参与校正
     begin
       StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData));
       Move(nBuf, nData, cSizeData);
@@ -1106,7 +1167,7 @@ begin
     //未找到完整协议包
 
     //--------------------------------------------------------------------------
-    if gTruckManager.VIPTruckInLine(FLineNO, ctDD) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNo, ctDD) then //VIP车辆参与校正
     begin
       StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData_6A));
       Move(nBuf, nData, cSizeData_6A);
@@ -1373,7 +1434,7 @@ begin
     nPos := Length(FData);
     if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
 
-    if gTruckManager.VIPTruckInLine(FLineNO, ctWQ, @nInBlack) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNo, ctWQ, @nInBlack) then //VIP车辆参与校正
     begin
       nE := nS + cSize_WQ_Data - 1;
       FBuffer := Copy(FData, nS, cSize_WQ_Data);
@@ -1635,20 +1696,20 @@ begin
     end;
 
     nInt := Item2Word(nData.FCO);
-    if nInt >= 30 then //碳氧: 1<x<30
+    if (nInt >= 30) or (nInt < 3) then //碳氧: 3<x<30
     begin
       if (GetTickCount - FAdj_LastActive >= cAdj_Interval) or
          (FAdj_Val_CO < 1) then
       begin
         FAdj_Kpt_CO := Random(cAdj_KeepLong);
-        FAdj_Val_CO := 1 + Random(29);
+        FAdj_Val_CO := 3 + Random(27);
         
         if FAdj_Val_CO < 15 then
              FAdj_Dir_CO := True
         else FAdj_Dir_CO := False;
       end;
 
-      if FAdj_Kpt_CO < 1 then
+      if FAdj_Kpt_CO < 3 then
       begin
         FAdj_Kpt_CO := Random(cAdj_KeepLong);
         //xxxxx
@@ -1664,9 +1725,9 @@ begin
         FAdj_Dir_CO := False;
       end;
 
-      if FAdj_Val_CO <= 1 then
+      if FAdj_Val_CO < 3 then
       begin
-        FAdj_Val_CO := 2;
+        FAdj_Val_CO := 3;
         FAdj_Dir_CO := True;
       end;
 
