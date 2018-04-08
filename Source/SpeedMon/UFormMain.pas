@@ -9,9 +9,9 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  UMonitor, USysConst, IdGlobal, IdSocketHandle, CPort, CPortTypes,
-  IdBaseComponent, IdComponent, IdUDPBase, IdUDPServer, UHotKeyManager,
-  ExtCtrls, StdCtrls, ComCtrls, IdTCPConnection, IdTCPClient;
+  UMonitor, UCommonConst, USysConst, IdGlobal, IdSocketHandle, CPort,
+  CPortTypes, IdTCPConnection, IdTCPClient, IdBaseComponent, IdComponent,
+  IdUDPBase, IdUDPServer, UHotKeyManager, ExtCtrls, StdCtrls, ComCtrls;
 
 type
   TCOMItem = record

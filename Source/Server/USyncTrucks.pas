@@ -9,14 +9,10 @@ interface
 
 uses
   Windows, SysUtils, Classes, SyncObjs, DB, IniFiles, Uni, UniProvider,
-  MySQLUniProvider, UWaitItem, USysLoger, ULibFun, UBase64, USysDB;
+  MySQLUniProvider, UWaitItem, USysLoger, ULibFun, UBase64, USysDB,
+  UCommonConst;
 
 type
-  TCOMType = (ctDD, ctWQ);
-  //类型: 大灯仪,尾气检测仪
-  TWQCheckType = (CTvmas, CTsds, CTlugdown, CTzyjs, CTUnknown);
-  //尾气检测方式: vams,双怠速,加载减速,自由加速,不支持
-
   TTruckItem = record
     FEnable: Boolean;          //是否有效
     FType: TCOMType;           //业务类型
@@ -25,9 +21,8 @@ type
     FLine: Integer;            //检测线
     FCheckType: TWQCheckType;  //尾气检测
   end;
-
   TTruckItems = array of TTruckItem;
-
+  
   TTruckManager = class(TThread)
   private
     FDBConfig: string;
@@ -42,7 +37,11 @@ type
     FTempTrucks: TTruckItems;
     FTempVIPTrucks: TStrings;
     //车辆列表
+    FWQSimplesIndex: Integer;
+    FWQSimples: TWQSimpleItems;
+    //尾气样本
     FWaiter: TWaitObject;
+    FWaiterWQSimple: TWaitObject;
     //等待对象
     FSyncLock: TCriticalSection;
     //同步锁定
@@ -52,6 +51,8 @@ type
     //执行线程
     function MakeVIPTruck: string;
     function GetTruckItem(const nTruck: string): Integer;
+    procedure DoLoadWQSimple(const nIndex: Integer);
+    procedure LoadWQSimpleData(const nIndex: Integer);
   public
     constructor Create(const nFileName: string);
     destructor Destroy; override;
@@ -62,18 +63,15 @@ type
     procedure LoadTruckToList(const nList: TStrings);
     //读取数据
     function VIPTruckInLine(const nLine: Integer; const nType: TCOMType;
-      const nInBlack: PBoolean = nil): Boolean;
+      var nTruck: string; const nInBlack: PBoolean = nil;
+      const nWQCheckType: PInteger = nil): Boolean;
     //车辆在线
+    function FillVMasSimple(var nTruck: string; var nData: TWQDataList): Boolean;
+    //vmas样本
   end;
 
 var
-  gPath: string;                            //程序路径
   gTruckManager: TTruckManager = nil;       //车辆同步
-
-resourcestring
-  sHint               = '提示';
-  sConfig             = 'Config.Ini';
-  sAutoStartKey       = 'COMServer';
 
 implementation
 
@@ -88,6 +86,7 @@ begin
   FreeOnTerminate := False;
   FDBConfig := nFileName;
 
+  SetLength(FWQSimples, 0);
   SetLength(FTrucks, 0);
   FVIPTrucks := TStringList.Create;
   FTempVIPTrucks := TStringList.Create;
@@ -95,6 +94,10 @@ begin
   FWaiter := TWaitObject.Create;
   FWaiter.Interval := 5 * 1000;
   FSyncLock := TCriticalSection.Create;
+
+  FWQSimplesIndex := -1;
+  FWaiterWQSimple := TWaitObject.Create;
+  FWaiterWQSimple.Interval := 10 * 1000;
 end;
 
 destructor TTruckManager.Destroy;
@@ -107,7 +110,8 @@ begin
   FTempVIPTrucks.Free;
   FVIPTrucks.Free;
   FSyncLock.Free;
-  
+
+  FWaiterWQSimple.Free;
   FWaiter.Free;
   inherited;
 end;
@@ -180,6 +184,14 @@ begin
       else nStr := 'VIP';
 
       nStr := Format('|--- %2d.%-6s [%s]', [nIdx+1, FVIPTrucks[nIdx], nStr]);
+      nList.Add(nStr);
+    end;
+
+    nList.Add(#13#10 + '尾气样本:');
+    for nIdx:=Low(FWQSimples) to High(FWQSimples) do
+    with FWQSimples[nIdx] do
+    begin
+      nStr := Format('|--- %2d.%-8s %s', [nIdx+1, FTruck, FXH]);
       nList.Add(nStr);
     end;
   finally
@@ -264,6 +276,7 @@ end;
 
 //------------------------------------------------------------------------------
 procedure TTruckManager.Execute;
+var nIdx: Integer;
 begin
   FDBConnDD := TUniConnection.Create(nil);
   FDBConnWQ := TUniConnection.Create(nil);
@@ -288,13 +301,22 @@ begin
       FDBConnWQ.Connect;
     //xxxxx
 
+    nIdx := FWQSimplesIndex;
+    //索引
+
     if FDBConnDD.Connected or FDBConnWQ.Connected then
     try
-      DoExecute;
+      if nIdx >= 0 then
+           DoLoadWQSimple(nIdx)
+      else DoExecute;
     except
       FDBConnDD.Disconnect;
       FDBConnWQ.Disconnect;
     end;
+
+    if nIdx >= 0 then
+      FWaiterWQSimple.Wakeup();
+    //唤醒
   except
     on nErr: Exception do
     begin
@@ -306,6 +328,53 @@ begin
   FreeAndNil(FDBConnWQ);
   FreeAndNil(FSQLQuery);
   FreeAndNil(FSQLCmd);
+end;
+
+//Date: 2018-04-07
+//Parm: 样本索引
+//Desc: 加载样本数据
+procedure TTruckManager.DoLoadWQSimple(const nIndex: Integer);
+var nStr: string;
+    nInt: Integer;
+begin
+  with FWQSimples[nIndex] do
+  begin
+    nInt := Length(FData);
+    if nInt > 0 then Exit;
+
+    FSQLQuery.Close;  
+    if FDBConnWQ.Tag > 0 then
+         FSQLQuery.Connection := FDBConnWQ
+    else FSQLQuery.Connection := FDBConnDD; //切换链路
+
+    nStr := 'select csgk_hc,csgk_co,csgk_co2,csgk_no,csgkfxy_o2 from %s ' +
+            'where jcsxh=''%s'' order by id asc';
+    FSQLQuery.SQL.Text := Format(nStr, [sTable_VMas, FXH]);
+    FSQLQuery.Open;
+
+    if (not FSQLQuery.Active) or (FSQLQuery.RecordCount < 1) then Exit;
+    //not valid
+    
+    with FSQLQuery do
+    begin
+      SetLength(FData, RecordCount);
+      nInt := 0;
+      First;
+
+      while not Eof do
+      with FData[nInt] do
+      begin
+        Word2Item(FCO2, Trunc(FieldByName('csgk_co2').AsFloat * 100));
+        Word2Item(FCO,  Trunc(FieldByName('csgk_co').AsFloat * 100));
+        Word2Item(FHC,  Trunc(FieldByName('csgk_hc').AsFloat));
+        Word2Item(FNO,  Trunc(FieldByName('csgk_no').AsFloat));
+        Word2Item(FO2,  Trunc(FieldByName('csgkfxy_o2').AsFloat * 100));
+
+        Inc(nInt);
+        Next;
+      end;
+    end;
+  end;
 end;
 
 procedure TTruckManager.DoExecute;
@@ -333,6 +402,36 @@ begin
       nIdx := Fields[1].AsInteger;
       FTempVIPTrucks.AddObject(Fields[0].AsString, Pointer(nIdx));
       Next;
+    end;
+  end;
+
+  if Length(FWQSimples) < 1 then
+  begin
+    nStr := 'select t_jcxh,t_truck from %s where t_valid=0 order by id asc';
+    FSQLQuery.SQL.Text := Format(nStr, [sTable_Simple]);
+    FSQLQuery.Open;
+
+    if FSQLQuery.Active and (FSQLQuery.RecordCount > 0) then
+    with FSQLQuery do
+    begin
+      SetLength(FWQSimples, RecordCount);
+      nIdx := 0;
+      First;
+
+      while not Eof do
+      begin
+        with FWQSimples[nIdx] do
+        begin
+          FXH := Fields[0].AsString;
+          FTruck := Fields[1].AsString;
+          
+          FUsed := 0;
+          SetLength(FData, 0);
+        end;
+
+        Inc(nIdx);
+        Next;
+      end;
     end;
   end;
 
@@ -434,10 +533,11 @@ begin
 end;
 
 //Date: 2016-10-15
-//Parm: 工位线号;业务类型;是否黑名单
+//Parm: 工位线号;业务类型;是否黑名单;尾气检测方式
 //Desc: 检查nLine线的当前车辆是否在VIP车辆列表中
 function TTruckManager.VIPTruckInLine(const nLine: Integer;
-  const nType: TCOMType; const nInBlack: PBoolean): Boolean;
+  const nType: TCOMType; var nTruck: string;
+  const nInBlack: PBoolean; const nWQCheckType: PInteger): Boolean;
 var i,nIdx: Integer;
 begin
   if Assigned(nInBlack) then
@@ -468,13 +568,102 @@ begin
       i := FVIPTrucks.IndexOf(FTruck);
       Result := i >= 0;
 
-      if Result and Assigned(nInBlack) then
-        nInBlack^ := Integer(FVIPTrucks.Objects[i]) = 0;
+      if Result then
+      begin
+        nTruck := FTruck;
+        //truck no
+        
+        if Assigned(nInBlack) then
+          nInBlack^ := Integer(FVIPTrucks.Objects[i]) = 0;
+        //xxxxx
+
+        if Assigned(nWQCheckType) then
+         nWQCheckType^ := Ord(FCheckType);
+        //xxxxx
+      end;
+
       Exit;
     end;
   finally
     FSyncLock.Leave;
   end;
+end;
+
+//Date: 2018-04-07
+//Parm: 样本索引
+//Desc: 载入nIndex样本的数据
+procedure TTruckManager.LoadWQSimpleData(const nIndex: Integer);
+begin
+  FSyncLock.Enter;
+  try
+    FWQSimplesIndex := nIndex;
+    FWaiter.Wakeup(True);
+    FWaiterWQSimple.EnterWait;
+  finally
+    FWQSimplesIndex := -1;
+    FSyncLock.Leave;
+  end;   
+end;
+
+//Date: 2018-04-07
+//Parm: 样本车牌;vmas数据
+//Desc: 填充样本数据到nData中
+function TTruckManager.FillVMasSimple(var nTruck: string;
+ var nData: TWQDataList): Boolean;
+var nIdx,nInt,nLen: Integer;
+begin
+  Result := False;
+  nInt := -1;
+  nLen := Length(FWQSimples);
+
+  if nLen < 1 then
+  begin
+    WriteLog('尾气样本数据为空.');
+    Exit;
+  end;
+
+  while True do
+  begin
+    nInt := Random(nLen);
+    if nInt >= nLen then Continue;
+
+    for nIdx:=Low(FWQSimples) to High(FWQSimples) do
+    if FWQSimples[nInt].FUsed - FWQSimples[nIdx].FUsed >= 2 then
+    begin
+      nInt := nIdx;
+      Break; //样本均匀
+    end;
+
+    Break; //命中
+  end;
+
+  with FWQSimples[nInt] do
+  begin
+    nLen := Length(FData);
+    if nLen < 1 then
+    begin
+      LoadWQSimpleData(nInt);
+      //载入数据
+      nLen := Length(FData);
+    end;
+
+    if nLen < 1 then
+    begin
+      WriteLog(Format('加载车辆[ %s.%s ]错误,数据为空.', [FTruck, FXH]));
+      Exit;
+    end;
+
+    Inc(FUsed);
+    nTruck := FTruck; 
+    SetLength(nData, nLen);
+
+    for nIdx:=Low(FData) to High(FData) do
+      nData[nIdx] := FData[nIdx];
+    //数据合并
+  end;
+
+  Result := True;
+  //done
 end;
 
 end.

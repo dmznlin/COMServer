@@ -87,7 +87,7 @@ type
     dxLayoutControl1Item14: TdxLayoutItem;
     BtnSave2: TcxButton;
     cxView2Column5: TcxGridDBColumn;
-    cxTabSheet1: TcxTabSheet;
+    Sheet4: TcxTabSheet;
     cxGrid3: TcxGrid;
     cxView3: TcxGridDBTableView;
     cxGridDBColumn1: TcxGridDBColumn;
@@ -103,7 +103,7 @@ type
     BtnFreshSimple: TcxButton;
     BtnHasDelSimple: TcxButton;
     cxLabel4: TcxLabel;
-    cxButtonEdit1: TcxButtonEdit;
+    EditFindSimple: TcxButtonEdit;
     cxView3Column1: TcxGridDBColumn;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -122,6 +122,9 @@ type
     procedure BtnHasDelSimpleClick(Sender: TObject);
     procedure BtnAddSimpleClick(Sender: TObject);
     procedure BtnDelSimpleClick(Sender: TObject);
+    procedure EditFindSimpleKeyPress(Sender: TObject; var Key: Char);
+    procedure EditFindSimplePropertiesButtonClick(Sender: TObject;
+      AButtonIndex: Integer);
   private
     { Private declarations }
     FUserPasswd: string;
@@ -334,7 +337,7 @@ procedure TfFormClient.wPagePageChanging(Sender: TObject;
   NewPage: TcxTabSheet; var AllowChange: Boolean);
 var nStr: string;
 begin
-  if NewPage = Sheet3 then
+  if (NewPage = Sheet3) or (NewPage = Sheet4) then
   begin
     if ShowInputPWDBox('请输入管理员密码:', '', nStr) then
          AllowChange := nStr = FUserPasswd
@@ -430,7 +433,7 @@ begin
   EditFind.Text := Trim(EditFind.Text);
   EditFind.SelStart := 0;
   EditFind.SelectAll;
-  
+
   if EditFind.Text = '' then
   begin
     ShowMsg('请输入车牌号', sHint);
@@ -495,6 +498,35 @@ begin
   end;
 
   RefreshSimpleList(not FLoadValidSimple);
+end;
+
+procedure TfFormClient.EditFindSimpleKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if Key = #13 then
+  begin
+    Key := #0;
+    EditFindSimplePropertiesButtonClick(nil, 0);
+  end;
+end;
+
+procedure TfFormClient.EditFindSimplePropertiesButtonClick(Sender: TObject;
+  AButtonIndex: Integer);
+var nStr: string;
+begin
+  EditFindSimple.Text := Trim(EditFindSimple.Text);
+  EditFindSimple.SelStart := 0;
+  EditFindSimple.SelectAll;
+
+  if EditFindSimple.Text = '' then
+  begin
+    ShowMsg('请输入车牌号', sHint);
+    Exit;
+  end;
+
+  nStr := 't_truck like ''%%%s%%''';
+  nStr := Format(nStr, [EditFindSimple.Text]);
+  RefreshSimpleList(False, nStr);
 end;
 
 end.

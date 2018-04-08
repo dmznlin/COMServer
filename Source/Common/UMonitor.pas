@@ -11,15 +11,9 @@ interface
 
 uses
   Windows, Classes, SysUtils, Messages, SyncObjs, TLHelp32, UWaitItem, ULibFun,
-  USysLoger, IdTCPConnection, IdTCPClient, IdGlobal, UBase64;
+  USysLoger, IdTCPConnection, IdTCPClient, IdGlobal, UBase64, UCommonConst;
 
 type
-  TDeviceType = (dtStation, dtDevice);
-  //设备类型: 上位机;下位机
-  
-  TMonStatus = (msNoRun, ms2K5, ms3K5, msVStart, msVRun, msVEnd, msVError);
-  //状态: 未运行;2K5模式,3K5模式;vmas开始;vmas运行中;vmas结束;vmas异常
-
   TStatusFlag = record
     FKeyWord: string;             //关键字
     FStatus: TMonStatus;          //运行状态
@@ -119,19 +113,11 @@ var
   gMonManager: TMonManager = nil;
   //全局使用
 
-function MonStatusToStr(const nStatus: TMonStatus): string;
-//入口函数
-
 implementation
 
 const
   cInterval_Long    = 5 * 1000;   //长等待
   cInterval_Short   = 500;        //短等待
-
-  cStatusName: array[msNoRun..msVError] of string = (
-    '未运行', '2K5模式', '3K5模式',
-    'vmas开始', 'vmas运行中', 'vmas结束', 'vmas异常');
-  //status desc
 
 var
   gWindowName: string;
@@ -143,11 +129,6 @@ var
 procedure WriteLog(const nEvent: string);
 begin
   gSysLoger.AddLog(TMonManager, '工位系统监控', nEvent);
-end;
-
-function MonStatusToStr(const nStatus: TMonStatus): string;
-begin
-  Result := cStatusName[nStatus];
 end;
 
 //------------------------------------------------------------------------------

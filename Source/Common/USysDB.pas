@@ -90,6 +90,7 @@ ResourceString
   sTable_Simple       = 'aa_td_run0';                //样本数据
   sTable_WQTruck      = 'aa_td_run';                 //尾气待检
   sTable_DDTruck      = 'aa_td_run';                 //大灯待检
+  sTable_VMas         = 'z_data_log_f';              //vams样本
 
 var
   gLocalName: string = '';

@@ -10,114 +10,13 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   USyncTrucks, CPort, CPortTypes, UTrayIcon, UMonitor, SyncObjs, UBase64,
-  cxControls, cxLookAndFeels, cxLookAndFeelPainters, cxContainer, cxEdit,
-  IdContext, ExtCtrls, IdBaseComponent, IdComponent, IdCustomTCPServer,
-  IdTCPServer, StdCtrls, cxMaskEdit, cxDropDownEdit, cxTextEdit, cxLabel,
-  cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase, dxNavBar, ComCtrls,
-  cxGraphics;
+  UCommonConst, cxGraphics, cxControls, cxLookAndFeels, cxLookAndFeelPainters,
+  cxContainer, cxEdit, IdContext, ExtCtrls, IdBaseComponent, IdComponent,
+  IdCustomTCPServer, IdTCPServer, StdCtrls, cxMaskEdit, cxDropDownEdit,
+  cxTextEdit, cxLabel, cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase,
+  dxNavBar, ComCtrls;
 
 type
-  TDDType = (NHD6108, MQD6A);
-  //大灯仪类型: 南华6108,明泉
-
-  TWQStatus = (wsTL, wsHK, wsHKStop, wsCQ);
-  //尾气业务状态: 调零,环境空气,环境空气停止,抽背景空气
-
-  PWQData = ^TWQData;
-  TWQData = record
-    FHead   : array[0..2] of Char;    //协议头
-    FCO2    : array[0..1] of Char;    //co2
-    FCO     : array[0..1] of Char;    //co
-    FHC     : array[0..1] of Char;    //碳氢
-    FNO     : array[0..1] of Char;    //氮氧
-    FO2     : array[0..1] of Char;    //氧气
-    FSD     : array[0..1] of Char;    //湿度
-    FYW     : array[0..1] of Char;    //油温
-    FHJWD   : array[0..1] of Char;    //环境温度
-    FZS     : array[0..1] of Char;    //转速
-    FQLYL   : array[0..1] of Char;    //气路压力
-    FKRB    : array[0..1] of Char;    //空燃比
-    FHJYL   : array[0..1] of Char;    //环境压力
-    FCRC    : array[0..0] of Char;    //校验位
-  end;
-  TWQDataList = array of TWQData;
-
-  TCOMItem = record
-    FItemName: string;            //节点名
-    FItemGroup: string;           //节点分组
-    FItemType: TCOMType;          //节点类型
-    FDDType: TDDType;             //大灯型号
-
-    FLineNo: Integer;             //检测线号
-    FPortName: string;            //端口名称
-    FBaudRate: TBaudRate;         //波特率
-    FDataBits: TDataBits;         //数据位
-    FStopBits: TStopBits;         //起停位
-
-    FCOMObject: TComPort;         //串口对象
-    FMemo: string;                //描述信息
-    FBuffer: string;              //数据缓存
-    FData: string;                //协议数据
-    FDataLast: Int64;             //接收时间
-
-    FAdj_Val_HC: Word;            //碳氢值(80<x<100,大于100校正)
-    FAdj_Dir_HC: Boolean;         //增减方向
-    FAdj_Kpt_HC: Word;            //保持次数
-    FAdj_Val_NO: Word;            //氧氮值(200<x<600,大于400校正)
-    FAdj_Dir_NO: Boolean;
-    FAdj_Kpt_NO: Word;
-    FAdj_Val_CO: Word;            //碳氧值(0.01<x<0.3,大于0.3校正)
-    FAdj_Dir_CO: Boolean;
-    FAdj_Kpt_CO: Word;
-    FAdj_Chg_KR: Boolean;         //空燃比变动
-    FAdj_Val_KR: Word;            //空燃比(0.97<x<1.03,大于1.03校正)
-    FAdj_Val_BS: Word;            //空燃比基数
-    FAdj_Val_O2: Word;
-    FAdj_Kpt_O2: Word;
-    FAdj_BSE_O2: Word;            //氧气参数
-    FAdj_Val_CO2:Word;
-    FAdj_BSE_CO2:Word;            //二氧化碳
-    FAdj_LastActive: Int64;       //上次触发
-
-    FWQStatus: TWQStatus;         //业务状态
-    FWQStatusTime: Int64;         //业务时间戳
-
-    FDeviceType: TDeviceType;     //设备类型
-    FGWStatus: TMonStatus;        //工位状态
-    FGWDataList: TWQDataList;     //样本数据
-    FGWDataIndex: Integer;        //发送数据索引
-  end;
-
-  PDataItem = ^TDataItem;
-  TDataItem = record
-    Fsoh    : array[0..0] of Char;    //协议头
-    Fno     : array[0..0] of Char;    //数据描述
-    Fylr    : array[0..4] of Char;    //远光左右偏移
-    Fyud    : array[0..4] of Char;    //远光上下便宜
-    Fyi     : array[0..3] of Char;    //远光强度
-    Fjh     : array[0..2] of Char;    //近光灯高
-    Fjlr    : array[0..4] of Char;    //近光左右偏移
-    Fjud    : array[0..4] of Char;    //近光上下偏移
-    Fjp     : array[0..3] of Char;    //灯高比值
-    Fend    : array[0..0] of Char;    //协议尾
-  end;
-
-  TLightData_6A = record
-    Fsppc   : array[0..4] of Char;    //水平偏差
-    Fczpc   : array[0..4] of Char;    //垂直偏差
-    Fgq     : array[0..3] of Char;    //光强
-    Fdg     : array[0..3] of Char;    //灯高
-  end;
-
-  PDataItem_6A = ^TDataItem_6A;
-  TDataItem_6A = record
-    FHead   : array[0..0] of Char;    //协议头
-    FPos    : array[0..0] of Char;    //左右(L,R)
-    FFar    : TLightData_6A;          //远光
-    FNear   : TLightData_6A;          //近光
-    FCRC    : array[0..0] of Char;    //校验位
-  end;
-
   TfFormMain = class(TForm)
     MemoLog: TMemo;
     StatusBar1: TStatusBar;
@@ -150,6 +49,7 @@ type
     Timer2: TTimer;
     CheckYG: TcxCheckBox;
     BtnOnline: TcxLabel;
+    Button1: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -196,8 +96,13 @@ type
     //数据处理
     function AdjustProtocol(const nData: PDataItem): Boolean;
     function AdjustProtocol_6A(const nData: PDataItem_6A): Boolean;
+    {$IFDEF WQUseSimple}
+    function AdjustWQProtocolBySimple(const nItem,nGroup: Integer;
+      const nData: PWQData; const nInBlack: Boolean): Boolean;
+    {$ELSE}
     function AdjustWQProtocol(const nItem,nGroup: Integer;
       const nData: PWQData; const nInBlack: Boolean): Boolean;
+    {$ENDIF}
     //校正数据
   public
     { Public declarations }
@@ -231,13 +136,6 @@ const
   sCMD_WQ_CQ      = Char($02) + Char($7B) + Char($03) + Char($80); //抽气指令
   sCMD_WQ_HK      = Char($02) + Char($7C) + Char($03) + Char($7F); //环境空气
   sCMD_WQ_Stop    = Char($02) + Char($78) + Char($03) + Char($83); //停止指令
-
-type
-  PSplitWord = ^TSplitWord;
-  TSplitWord = packed record
-    FLo: Byte;
-    FHi: Byte;
-  end;
 
 procedure WriteLog(const nEvent: string);
 begin
@@ -616,12 +514,34 @@ begin
         if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msVError)) then
         begin
           nStatus := TMonStatus(nInt);
-          if nStatus <> FCOMPorts[nIdx].FGWStatus then
+          FCOMPorts[nIdx].FGWStatus := nStatus;
+          
+          nStr := Format('状态切换: %d线 -> %s', [FCOMPorts[nIdx].FLineNo,
+                  MonStatusToStr(nStatus)]);
+          WriteLog(nStr);
+
+          if nStatus = msVStart then //vmas开始
+          with FCOMPorts[nIdx] do
           begin
-            FCOMPorts[nIdx].FGWStatus := nStatus;
-            nStr := Format('状态切换: %d线 -> %s', [FCOMPorts[nIdx].FLineNo,
-                    MonStatusToStr(nStatus)]);
-            WriteLog(nStr);
+            FGWDataIndex := 0;
+            //重置索引
+              
+            if (GetTickCount - FGWDataLast > 5 * 60 * 1000) and
+              gTruckManager.FillVMasSimple(FGWDataTruck, FGWDataList) then
+            begin
+              FGWDataLast := GetTickCount;
+              WriteLog(Format('加载[ %s ]样本成功', [FGWDataTruck]));
+            end;
+          end else
+
+          if nStatus = msVEnd then //vmas结束
+          begin
+            FGWDataIndex := 0;
+            FCOMPorts[nIdx].FGWDataLast := 0;
+            
+            FGWDataTruck := '';
+            SetLength(FCOMPorts[nIdx].FGWDataList, 0);
+            //清理样本
           end;
         end;
       end;
@@ -677,9 +597,10 @@ begin
       FWQStatusTime := 0;
 
       FGWStatus := msNoRun;
-      SetLength(FGWDataList, 0);
       FGWDataIndex := 0;
-
+      FGWDataLast := 0;
+      SetLength(FGWDataList, 0);
+                       
       FDeviceType := TDeviceType(ReadInteger(nList[nIdx], 'DeviceType', 0));
       //设备类型
 
@@ -919,7 +840,7 @@ begin
     end; //未找到完整协议包
 
     //--------------------------------------------------------------------------
-    if gTruckManager.VIPTruckInLine(FLineNo, ctDD) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNo, ctDD, FTruckNo) then //VIP车辆参与校正
     begin
       StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData));
       Move(nBuf, nData, cSizeData);
@@ -1167,7 +1088,7 @@ begin
     //未找到完整协议包
 
     //--------------------------------------------------------------------------
-    if gTruckManager.VIPTruckInLine(FLineNo, ctDD) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNo, ctDD, FTruckNo) then //VIP车辆参与校正
     begin
       StrPCopy(@nBuf[0], Copy(FData, nS, cSizeData_6A));
       Move(nBuf, nData, cSizeData_6A);
@@ -1327,6 +1248,7 @@ procedure TfFormMain.ParseWQProtocol(const nItem, nGroup: Integer);
 var nS,nE,nPos,nIdx: Integer;
     nData: TWQData;
     nInBlack: Boolean;
+    nCheckType: TWQCheckType;
     nBuf: array[0..cSize_WQ_Data-1] of Char;
 begin
   with FCOMPorts[nItem] do
@@ -1434,8 +1356,42 @@ begin
     nPos := Length(FData);
     if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
 
-    if gTruckManager.VIPTruckInLine(FLineNo, ctWQ, @nInBlack) then //VIP车辆参与校正
+    if gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo,
+      @nInBlack, @nCheckType) then //VIP车辆参与校正
     begin
+      {$IFDEF WQUseSimple}
+      FSyncLock.Enter;
+      try
+        if (nCheckType = CTvmas) and (FGWStatus = msVRun) then
+        begin
+          if FGWDataIndex = 0 then
+          begin
+            WriteLog(Format('车辆[ %d.%-6s ]开始启用[ %s ]样本.', [FLineNo,
+              FTruckNo,FGWDataTruck]));
+            //首包,打印日志
+          end;
+
+          nE := nS + cSize_WQ_Data - 1;
+          FBuffer := Copy(FData, nS, cSize_WQ_Data);
+
+          for nIdx:=Low(nBuf) to High(nBuf) do
+            nBuf[nIdx] := FBuffer[nIdx + 1];
+          Move(nBuf, nData, cSize_WQ_Data);
+          //复制到协议包,准备分析
+
+          if AdjustWQProtocolBySimple(nItem, nGroup, @nData, nInBlack) then
+          begin
+            SetString(FBuffer, PChar(@nData.FHead), cSize_WQ_Data);
+            FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
+            FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+          end;
+        end;
+      finally
+        FSyncLock.Leave;
+      end;
+
+      //------------------------------------------------------------------------
+      {$ELSE}
       nE := nS + cSize_WQ_Data - 1;
       FBuffer := Copy(FData, nS, cSize_WQ_Data);
 
@@ -1451,6 +1407,7 @@ begin
         FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
         FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
       end;
+      {$ENDIF}
     end;
 
     RedirectData(nItem, nGroup, FData);
@@ -1459,22 +1416,7 @@ begin
   end;
 end;
 
-function Item2Word(const nItem: array of Char): Word;
-var nWord: TSplitWord;
-begin
-  nWord.FHi := Ord(nItem[0]);
-  nWord.FLo := Ord(nItem[1]);
-  Result := Word(nWord);
-end;
-
-procedure Word2Item(var nItem: array of Char; const nWord: Word);
-var nW: TSplitWord;
-begin
-  nW := TSplitWord(nWord);
-  nItem[0] := Char(nW.FHi);
-  nItem[1] := Char(nW.FLo);
-end;
-
+{$IFNDEF WQUseSimple}
 //Date: 2016-10-08
 //Parm: 源端口;转发端口;协议数据;黑名单
 //Desc: 分析协议数据,有必要时校正
@@ -1782,5 +1724,51 @@ begin
     //upate time stamp
   end;
 end;
+{$ENDIF}
+
+{$IFDEF WQUseSimple}
+//Date: 2018-04-09
+//Parm: 源端口;转发端口;协议数据;黑名单
+//Desc: 使用样本修正数据
+function TfFormMain.AdjustWQProtocolBySimple(const nItem, nGroup: Integer;
+  const nData: PWQData; const nInBlack: Boolean): Boolean;
+var nStr: string;
+    nInt: Integer;
+begin
+  Result := False;
+  with FCOMPorts[nItem] do
+  begin
+    nInt := High(FGWDataList);
+    if FGWDataIndex > nInt then Exit; //no data
+
+    if CheckDetail.Checked then
+    begin
+      nStr :=
+        'CO2:[ ' + IntToStr(Item2Word(nData.FCO2)) + '-' +
+                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FCO2)) + ' ] '+
+        'CO:[ ' +  IntToStr(Item2Word(nData.FCO)) + '-' +
+                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FCO)) + ' ] ' +
+        'HC:[ ' +  IntToStr(Item2Word(nData.FHC)) + '-' +
+                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FHC)) + ' ] ' +
+        'NO:[ ' +  IntToStr(Item2Word(nData.FNO)) + '-' +
+                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FNO)) + ' ] ' +
+        'O2:[ ' +  IntToStr(Item2Word(nData.FO2)) + '-' +
+                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FO2)) + ' ] ' +
+        IntToStr(FGWDataIndex + 1);
+      WriteLog(nStr);
+    end;
+
+    nData.FCO2 := FGWDataList[FGWDataIndex].FCO2;
+    nData.FCO  := FGWDataList[FGWDataIndex].FCO;
+    nData.FHC  := FGWDataList[FGWDataIndex].FHC;
+    nData.FNO  := FGWDataList[FGWDataIndex].FNO;
+    nData.FO2  := FGWDataList[FGWDataIndex].FO2;
+
+    if FGWDataIndex < nInt then
+      Inc(FGWDataIndex);
+    Result := True;
+  end;
+end;
+{$ENDIF}
 
 end.
