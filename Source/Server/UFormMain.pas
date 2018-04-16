@@ -49,7 +49,6 @@ type
     Timer2: TTimer;
     CheckYG: TcxCheckBox;
     BtnOnline: TcxLabel;
-    Button1: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -267,6 +266,9 @@ procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
 var nIni: TIniFile;
     nReg: TRegistry;
 begin
+  IdTCPServer1.Active := False;
+  //stop server
+  
   if Assigned(gTruckManager) then
     gTruckManager.StopMe;
   gTruckManager := nil;
@@ -489,7 +491,7 @@ procedure TfFormMain.DoExecute(const nContext: TIdContext);
 var nStr: string;
     nList: TStrings;
     nIdx,nInt: Integer;
-    nStatus: TMonStatus;
+    nStatus: TMonStatusItem;
 begin
   nList := TStringList.Create;
   try
@@ -513,7 +515,7 @@ begin
         
         if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msVError)) then
         begin
-          nStatus := TMonStatus(nInt);
+          nStatus := TMonStatusItem(nInt);
           FCOMPorts[nIdx].FGWStatus := nStatus;
           
           nStr := Format('状态切换: %d线 -> %s', [FCOMPorts[nIdx].FLineNo,
@@ -524,6 +526,7 @@ begin
           with FCOMPorts[nIdx] do
           begin
             FGWDataIndex := 0;
+            FGWDataIndexTime := 0;
             //重置索引
               
             if (GetTickCount - FGWDataLast > 5 * 60 * 1000) and
@@ -537,11 +540,19 @@ begin
           if nStatus = msVEnd then //vmas结束
           begin
             FGWDataIndex := 0;
+            FGWDataIndexTime := 0;
             FCOMPorts[nIdx].FGWDataLast := 0;
             
             FGWDataTruck := '';
             SetLength(FCOMPorts[nIdx].FGWDataList, 0);
             //清理样本
+          end else
+
+          if nStatus = msVError then //vmas错误
+          begin
+            FGWDataIndex := 0;
+            FGWDataIndexTime := 0;
+            //重置索引
           end;
         end;
       end;
@@ -596,8 +607,9 @@ begin
       FWQStatus := wsTL;
       FWQStatusTime := 0;
 
-      FGWStatus := msNoRun;
       FGWDataIndex := 0;
+      FGWDataIndexTime := 0;
+      FGWStatus := msNoRun;
       FGWDataLast := 0;
       SetLength(FGWDataList, 0);
                        
@@ -1364,7 +1376,7 @@ begin
       try
         if (nCheckType = CTvmas) and (FGWStatus = msVRun) then
         begin
-          if FGWDataIndex = 0 then
+          if FGWDataIndexTime = 0 then
           begin
             WriteLog(Format('车辆[ %d.%-6s ]开始启用[ %s ]样本.', [FLineNo,
               FTruckNo,FGWDataTruck]));
@@ -1734,6 +1746,9 @@ function TfFormMain.AdjustWQProtocolBySimple(const nItem, nGroup: Integer;
   const nData: PWQData; const nInBlack: Boolean): Boolean;
 var nStr: string;
     nInt: Integer;
+    nH,nM,nS,nMS: Word;
+    nSimple: TWQSimpleData;
+    nIndx,nDirect,nVal: Integer;
 begin
   Result := False;
   with FCOMPorts[nItem] do
@@ -1741,31 +1756,81 @@ begin
     nInt := High(FGWDataList);
     if FGWDataIndex > nInt then Exit; //no data
 
+    if FGWDataIndexTime = 0 then
+      FGWDataIndexTime := Time();
+    //first
+    
+    if FGWDataIndex < nInt then
+    begin
+      DecodeTime(Time() - FGWDataIndexTime, nH, nM, nS, nMS);
+      if nM * 60 + nS <= nInt then
+           FGWDataIndex := nM * 60 + nS
+      else FGWDataIndex := nInt;
+    end;
+
+    nIndx := Random(5);
+    nVal := Random(2);
+    nDirect := Random(10) mod 2;
+                      
+    {$IFDEF DEBUG}
+    WriteLog(Format('%d %d %d', [nIndx, nVal, nDirect]));
+    {$ENDIF}
+
+    nSimple := FGWDataList[FGWDataIndex];
+    with nSimple do
+    begin
+      case nIndx of
+       1: begin //co2
+            if nDirect > 0 then
+                 Word2Item(FCO2, Item2Word(FCO2) + nVal)
+            else Word2Item(FCO2, Item2Word(FCO2) - nVal);
+          end;
+       2: begin //co
+            if nDirect > 0 then
+                 Word2Item(FCO, Item2Word(FCO) + nVal)
+            else Word2Item(FCO, Item2Word(FCO) - nVal);
+          end;
+       3: begin //hc
+            if nDirect > 0 then
+                 Word2Item(FHC, Item2Word(FHC) + nVal)
+            else Word2Item(FHC, Item2Word(FHC) - nVal);
+          end;
+       4: begin //no
+            if nDirect > 0 then
+                 Word2Item(FNO, Item2Word(FNO) + nVal)
+            else Word2Item(FNO, Item2Word(FNO) - nVal);
+          end;
+       5: begin //o2
+            if nDirect > 0 then
+                 Word2Item(FO2, Item2Word(FO2) + nVal)
+            else Word2Item(FO2, Item2Word(FO2) - nVal);
+            end;
+      end;
+    end; //微调数据
+
     if CheckDetail.Checked then
     begin
       nStr :=
         'CO2:[ ' + IntToStr(Item2Word(nData.FCO2)) + '-' +
-                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FCO2)) + ' ] '+
+                   IntToStr(Item2Word(nSimple.FCO2)) + ' ] '+
         'CO:[ ' +  IntToStr(Item2Word(nData.FCO)) + '-' +
-                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FCO)) + ' ] ' +
+                   IntToStr(Item2Word(nSimple.FCO)) + ' ] ' +
         'HC:[ ' +  IntToStr(Item2Word(nData.FHC)) + '-' +
-                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FHC)) + ' ] ' +
+                   IntToStr(Item2Word(nSimple.FHC)) + ' ] ' +
         'NO:[ ' +  IntToStr(Item2Word(nData.FNO)) + '-' +
-                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FNO)) + ' ] ' +
+                   IntToStr(Item2Word(nSimple.FNO)) + ' ] ' +
         'O2:[ ' +  IntToStr(Item2Word(nData.FO2)) + '-' +
-                   IntToStr(Item2Word(FGWDataList[FGWDataIndex].FO2)) + ' ] ' +
+                   IntToStr(Item2Word(nSimple.FO2)) + ' ] ' +
         IntToStr(FGWDataIndex + 1);
       WriteLog(nStr);
     end;
 
-    nData.FCO2 := FGWDataList[FGWDataIndex].FCO2;
-    nData.FCO  := FGWDataList[FGWDataIndex].FCO;
-    nData.FHC  := FGWDataList[FGWDataIndex].FHC;
-    nData.FNO  := FGWDataList[FGWDataIndex].FNO;
-    nData.FO2  := FGWDataList[FGWDataIndex].FO2;
+    nData.FCO2 := nSimple.FCO2;
+    nData.FCO  := nSimple.FCO;
+    nData.FHC  := nSimple.FHC;
+    nData.FNO  := nSimple.FNO;
+    nData.FO2  := nSimple.FO2; //combine
 
-    if FGWDataIndex < nInt then
-      Inc(FGWDataIndex);
     Result := True;
   end;
 end;

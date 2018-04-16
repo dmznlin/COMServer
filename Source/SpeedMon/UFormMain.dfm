@@ -11,7 +11,6 @@ object fFormMain: TfFormMain
   Font.Height = -12
   Font.Name = #23435#20307
   Font.Style = []
-  FormStyle = fsStayOnTop
   OldCreateOrder = False
   Position = poDesktopCenter
   OnClose = FormClose

@@ -16,7 +16,7 @@ uses
 type
   TStatusFlag = record
     FKeyWord: string;             //¹Ø¼ü×Ö
-    FStatus: TMonStatus;          //ÔËÐÐ×´Ì¬
+    FStatus: TMonStatusItem;      //ÔËÐÐ×´Ì¬
   end;
   TStatusFlags = array of TStatusFlag;
 
@@ -200,7 +200,7 @@ function TMonManager.Status: TMonStatus;
 begin
   FSyncLock.Enter;
   try
-    Result := msNoRun;
+    Result := [msNoRun];
     if Assigned(FMonitor) then
       Result := FMonitor.FStatus;
     //xxxxx
@@ -216,8 +216,8 @@ begin
   FreeOnTerminate := False;
 
   FOwner := AOwner;
-  FStatus := msNoRun;
-  FTmpStatus := msNoRun;
+  FStatus := [msNoRun];
+  FTmpStatus := [msNoRun];
 
   FProcessID := 0;
   FWindowID := 0;
@@ -254,11 +254,13 @@ begin
     FWaiter.EnterWait;
     if Terminated then Exit;
 
-    FTmpStatus := msNoRun;
+    FTmpStatus := [];
     DoExecute;
 
     FOwner.FSyncLock.Enter;
-    FStatus := FTmpStatus; //update
+    if FTmpStatus = [] then
+         FStatus := [msNoRun]
+    else FStatus := FTmpStatus; //update
     FOwner.FSyncLock.Leave;
 
     if (FWindowID = 0) or (FProcessID = 0) then
@@ -443,7 +445,7 @@ begin
 
   if Pos('2500', nStr) > 0 then
   begin
-    FTmpStatus := ms2K5;
+    FTmpStatus := FTmpStatus + [ms2K5];
     if FTmpStatus <> FStatus then
       WriteLog('¿ªÊ¼2500rpm¼à¿Ø.');
     //xxxxx
@@ -451,7 +453,7 @@ begin
 
   if Pos('3500', nStr) > 0 then
   begin
-    FTmpStatus := ms3K5;
+    FTmpStatus := FTmpStatus + [ms3K5];
     if FTmpStatus <> FStatus then
       WriteLog('¿ªÊ¼3500rpm¼à¿Ø.');
     //xxxxx
@@ -460,17 +462,17 @@ begin
   for nIdx:=Low(gStatusFlags) to High(gStatusFlags) do
   if Pos(gStatusFlags[nIdx].FKeyWord, nStr) > 0 then
   begin
-    FTmpStatus := gStatusFlags[nIdx].FStatus;
+    FTmpStatus := FTmpStatus + [gStatusFlags[nIdx].FStatus];
     if FTmpStatus <> FStatus then
     begin
       with FOwner do
       begin
         FListA.Values['LineNo'] := FLineNo;
-        FListA.Values['Status'] := IntToStr(Ord(FTmpStatus));
+        FListA.Values['Status'] := IntToStr(Ord(gStatusFlags[nIdx].FStatus));
         FRemoteSync.SyncData(EncodeBase64(FListA.Text));
       end;
 
-      WriteLog('×´Ì¬ÇÐ»»: ' + MonStatusToStr(FTmpStatus));
+      WriteLog('×´Ì¬ÇÐ»»: ' + MonStatusToStr(gStatusFlags[nIdx].FStatus));
       //log
     end;
   end;

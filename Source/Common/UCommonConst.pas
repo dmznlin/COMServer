@@ -31,8 +31,11 @@ type
   TWQCheckType = (CTvmas, CTsds, CTlugdown, CTzyjs, CTUnknown);
   //尾气检测方式: vams,双怠速,加载减速,自由加速,不支持
 
-  TMonStatus = (msNoRun, ms2K5, ms3K5, msVStart, msVRun, msVEnd, msVError);
+  TMonStatusItem = (msNoRun, ms2K5, ms3K5, msVStart, msVRun, msVEnd, msVError,
+                    msDStart, msDRun, msDEnd, msDError);
   //尾气检测状态: 未运行;2K5模式,3K5模式;vmas开始;vmas运行中;vmas结束;vmas异常
+  //      双怠速: 开始,运行中,结束,异常
+  TMonStatus = set of TMonStatusItem;
 
   TWQValue = array[0..1] of Char;
   //尾气双字节值
@@ -116,9 +119,10 @@ type
 
     FDeviceType: TDeviceType;     //设备类型
     FGWCheckType: TWQCheckType;   //检测类型
-    FGWStatus: TMonStatus;        //工位状态
+    FGWStatus: TMonStatusItem;    //工位状态
     
     FGWDataIndex: Integer;        //发送数据索引
+    FGWDataIndexTime: TDateTime;  //数据索引计时
     FGWDataTruck: string;         //样本车牌
     FGWDataLast: Int64;           //采样时间
     FGWDataList: TWQDataList;     //样本数据
@@ -157,7 +161,7 @@ type
 var
   gPath: string;                            //程序路径
 
-function MonStatusToStr(const nStatus: TMonStatus): string;
+function MonStatusToStr(const nStatus: TMonStatusItem): string;
 function Item2Word(const nItem: array of Char): Word;
 procedure Word2Item(var nItem: array of Char; const nWord: Word);
 //入口函数
@@ -175,7 +179,7 @@ const
     'vmas开始', 'vmas运行中', 'vmas结束', 'vmas异常');
   //status desc
 
-function MonStatusToStr(const nStatus: TMonStatus): string;
+function MonStatusToStr(const nStatus: TMonStatusItem): string;
 begin
   Result := cStatusName[nStatus];
 end;

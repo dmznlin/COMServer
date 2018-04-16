@@ -193,7 +193,7 @@ const cSection = 'StatusFlag';
 var nStr: string; 
     nList: TStrings;
     nIdx,nLen: Integer;
-    nStatus: TMonStatus;
+    nStatus: TMonStatusItem;
 begin
   nList := TStringList.Create;
   try
@@ -619,7 +619,7 @@ end;
 procedure TfFormMain.CheckSrvClick(Sender: TObject);
 begin
   FRandomNum := 0;
-  FNowStatus := msNoRun;
+  FNowStatus := [msNoRun];
 
   Group3.Enabled := not CheckSrv.Checked;
   Group4.Enabled := not CheckSrv.Checked;
@@ -739,7 +739,7 @@ begin
     end;
 
     if (not CheckSrv.Checked) or (FCOMPorts[nItem].FDeviceType = dtStation) or
-       (gMonManager.Status = msNoRun) then //不校正,上位机,未运行
+       (msNoRun in gMonManager.Status) then //不校正,上位机,未运行
     begin
       nStr := FCOMPorts[nItem].FBuffer;
       if FCOMPorts[nItem].FData <> '' then
@@ -900,18 +900,18 @@ begin
   if FNowStatus <> gMonManager.Status then
   begin
     FNowStatus := gMonManager.Status;
-    if FNowStatus = ms2K5 then
+    if ms2K5 in FNowStatus then
     begin
       SplitRangeValue(EditRange2.Text, EditMaxRange2.Text);
     end else
 
-    if FNowStatus = ms3K5 then
+    if ms3K5 in FNowStatus then
     begin
       SplitRangeValue(EditRange3.Text, EditMaxRange3.Text);
     end;
   end;
 
-  if FNowStatus = msNoRun then Exit;
+  if msNoRun in FNowStatus then Exit;
   //invalid status
   if (nVal < FMaxRangeLow) or (nVal > FMaxRangeHigh) then Exit;
   //out of range
