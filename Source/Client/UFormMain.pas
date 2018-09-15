@@ -105,6 +105,7 @@ type
     cxLabel4: TcxLabel;
     EditFindSimple: TcxButtonEdit;
     cxView3Column1: TcxGridDBColumn;
+    cxView3Column2: TcxGridDBColumn;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;

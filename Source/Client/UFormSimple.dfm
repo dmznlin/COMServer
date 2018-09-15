@@ -19,41 +19,54 @@ object fFormSimle: TfFormSimle
   object dxLayoutControl1: TdxLayoutControl
     Left = 0
     Top = 0
-    Width = 402
-    Height = 174
+    Width = 394
+    Height = 162
     Align = alClient
     TabOrder = 0
     TabStop = False
     AutoContentSizes = [acsWidth, acsHeight]
     LookAndFeel = FDM.dxLayoutWeb1
     object BtnOK: TcxButton
-      Left = 256
-      Top = 141
+      Left = 248
+      Top = 129
       Width = 65
       Height = 22
       Caption = #20445#23384
-      TabOrder = 2
+      TabOrder = 3
       OnClick = BtnOKClick
     end
     object BtnExit: TcxButton
-      Left = 326
-      Top = 141
+      Left = 318
+      Top = 129
       Width = 65
       Height = 22
       Caption = #21462#28040
       ModalResult = 2
-      TabOrder = 3
+      TabOrder = 4
     end
     object EditTruck: TcxTextEdit
       Left = 81
       Top = 36
+      ParentFont = False
       TabOrder = 0
       Width = 121
     end
     object EditXH: TcxTextEdit
       Left = 81
       Top = 61
+      ParentFont = False
       TabOrder = 1
+      Width = 121
+    end
+    object EditType: TcxComboBox
+      Left = 81
+      Top = 86
+      Properties.DropDownListStyle = lsEditFixedList
+      Properties.ItemHeight = 20
+      Properties.Items.Strings = (
+        'VMAS'
+        #21452#24608#36895)
+      TabOrder = 2
       Width = 121
     end
     object dxLayoutControl1Group_Root: TdxLayoutGroup
@@ -72,6 +85,11 @@ object fFormSimle: TfFormSimle
         object dxLayoutControl1Item4: TdxLayoutItem
           Caption = #26816#27979#27969#27700':'
           Control = EditXH
+          ControlOptions.ShowBorder = False
+        end
+        object dxLayoutControl1Item5: TdxLayoutItem
+          Caption = #26816#27979#31867#22411':'
+          Control = EditType
           ControlOptions.ShowBorder = False
         end
       end

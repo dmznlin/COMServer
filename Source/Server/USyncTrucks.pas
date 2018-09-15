@@ -37,8 +37,10 @@ type
     FTempTrucks: TTruckItems;
     FTempVIPTrucks: TStrings;
     //车辆列表
+    FWQSimplesType: string;
     FWQSimplesIndex: Integer;
-    FWQSimples: TWQSimpleItems;
+    FWQSimplesVMAS: TWQSimpleItems;
+    FWQSimplesSDS: TWQSimpleItems;
     //尾气样本
     FWaiter: TWaitObject;
     FWaiterWQSimple: TWaitObject;
@@ -52,7 +54,7 @@ type
     function MakeVIPTruck: string;
     function GetTruckItem(const nTruck: string): Integer;
     procedure DoLoadWQSimple(const nIndex: Integer);
-    procedure LoadWQSimpleData(const nIndex: Integer);
+    procedure LoadWQSimpleData(const nIndex: Integer; const nType: string);
   public
     constructor Create(const nFileName: string);
     destructor Destroy; override;
@@ -67,6 +69,8 @@ type
       const nWQCheckType: PInteger = nil): Boolean;
     //车辆在线
     function FillVMasSimple(var nTruck: string; var nData: TWQDataList): Boolean;
+    //vmas样本
+    function FillSDSSimple(var nTruck: string; var nData: TWQDataList): Boolean;
     //vmas样本
   end;
 
@@ -86,7 +90,6 @@ begin
   FreeOnTerminate := False;
   FDBConfig := nFileName;
 
-  SetLength(FWQSimples, 0);
   SetLength(FTrucks, 0);
   FVIPTrucks := TStringList.Create;
   FTempVIPTrucks := TStringList.Create;
@@ -96,6 +99,9 @@ begin
   FSyncLock := TCriticalSection.Create;
 
   FWQSimplesIndex := -1;
+  SetLength(FWQSimplesVMAS, 0);
+  SetLength(FWQSimplesSDS, 0);
+                             
   FWaiterWQSimple := TWaitObject.Create;
   FWaiterWQSimple.Interval := 10 * 1000;
 end;
@@ -170,7 +176,7 @@ begin
         nCheck := '自由加速'
       else nCheck := '未知';
 
-      nStr := Format('|--- %2d.%-6s [%-4s %2d线 %-8s]', [nIdx+1, FTruck,
+      nStr := Format('|--- %2d.%-8s [%-4s %2d线 %-8s]', [nIdx+1, FTruck,
               nStr, FLine, nCheck]);
       nList.Add(nStr);
     end;
@@ -183,13 +189,21 @@ begin
            nStr := '黑名单'
       else nStr := 'VIP';
 
-      nStr := Format('|--- %2d.%-6s [%s]', [nIdx+1, FVIPTrucks[nIdx], nStr]);
+      nStr := Format('|--- %2d.%-8s [%-6s]', [nIdx+1, FVIPTrucks[nIdx], nStr]);
       nList.Add(nStr);
     end;
 
-    nList.Add(#13#10 + '尾气样本:');
-    for nIdx:=Low(FWQSimples) to High(FWQSimples) do
-    with FWQSimples[nIdx] do
+    nList.Add(#13#10 + '尾气样本: VMAS');
+    for nIdx:=Low(FWQSimplesVMAS) to High(FWQSimplesVMAS) do
+    with FWQSimplesVMAS[nIdx] do
+    begin
+      nStr := Format('|--- %2d.%-8s %s', [nIdx+1, FTruck, FXH]);
+      nList.Add(nStr);
+    end;
+
+    nList.Add(#13#10 + '尾气样本: 双怠速');
+    for nIdx:=Low(FWQSimplesSDS) to High(FWQSimplesSDS) do
+    with FWQSimplesSDS[nIdx] do
     begin
       nStr := Format('|--- %2d.%-8s %s', [nIdx+1, FTruck, FXH]);
       nList.Add(nStr);
@@ -337,7 +351,8 @@ procedure TTruckManager.DoLoadWQSimple(const nIndex: Integer);
 var nStr: string;
     nInt: Integer;
 begin
-  with FWQSimples[nIndex] do
+  if FWQSimplesType = sFlag_Type_VMAS then
+  with FWQSimplesVMAS[nIndex] do
   begin
     nInt := Length(FData);
     if nInt > 0 then Exit;
@@ -375,6 +390,47 @@ begin
       end;
     end;
   end;
+
+  //----------------------------------------------------------------------------
+  if FWQSimplesType = sFlag_Type_SDS then
+  with FWQSimplesSDS[nIndex] do
+  begin
+    nInt := Length(FData);
+    if nInt > 0 then Exit;
+
+    FSQLQuery.Close;  
+    if FDBConnWQ.Tag > 0 then
+         FSQLQuery.Connection := FDBConnWQ
+    else FSQLQuery.Connection := FDBConnDD; //切换链路
+
+    nStr := 'select hc,co,co2,o2 from %s ' +
+            'where jcbgbh=''%s'' order by id asc';
+    FSQLQuery.SQL.Text := Format(nStr, [sTable_SDS, FXH]);
+    FSQLQuery.Open;
+
+    if (not FSQLQuery.Active) or (FSQLQuery.RecordCount < 1) then Exit;
+    //not valid
+    
+    with FSQLQuery do
+    begin
+      SetLength(FData, RecordCount);
+      nInt := 0;
+      First;
+
+      while not Eof do
+      with FData[nInt] do
+      begin
+        Word2Item(FCO2, Trunc(FieldByName('co2').AsFloat * 100));
+        Word2Item(FCO,  Trunc(FieldByName('co').AsFloat * 100));
+        Word2Item(FHC,  Trunc(FieldByName('hc').AsFloat));
+        Word2Item(FNO,  10 + Random(15));
+        Word2Item(FO2,  Trunc(FieldByName('o2').AsFloat * 100));
+
+        Inc(nInt);
+        Next;
+      end;
+    end;
+  end;
 end;
 
 procedure TTruckManager.DoExecute;
@@ -405,31 +461,52 @@ begin
     end;
   end;
 
-  if Length(FWQSimples) < 1 then
+  if (Length(FWQSimplesVMAS) < 1) and (Length(FWQSimplesSDS) < 1) then
   begin
-    nStr := 'select t_jcxh,t_truck from %s where t_valid=0 order by id asc';
+    nStr := 'select t_jcxh,t_truck,t_type from %s where t_valid=0 order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_Simple]);
     FSQLQuery.Open;
 
     if FSQLQuery.Active and (FSQLQuery.RecordCount > 0) then
     with FSQLQuery do
     begin
-      SetLength(FWQSimples, RecordCount);
-      nIdx := 0;
       First;
 
       while not Eof do
       begin
-        with FWQSimples[nIdx] do
+        nStr := Fields[2].AsString;
+        if nStr = sFlag_Type_VMAS then //vmas样本
         begin
-          FXH := Fields[0].AsString;
-          FTruck := Fields[1].AsString;
-          
-          FUsed := 0;
-          SetLength(FData, 0);
+          nIdx := Length(FWQSimplesVMAS);
+          SetLength(FWQSimplesVMAS, nIdx + 1);
+
+          with FWQSimplesVMAS[nIdx] do
+          begin
+            FXH     := Fields[0].AsString;
+            FTruck  := Fields[1].AsString;
+            FType   := sFlag_Type_VMAS;
+
+            FUsed := 0;
+            SetLength(FData, 0);
+          end;
+        end else
+
+        if nStr = sFlag_Type_SDS then //双怠速样本
+        begin
+          nIdx := Length(FWQSimplesSDS);
+          SetLength(FWQSimplesSDS, nIdx + 1);
+
+          with FWQSimplesSDS[nIdx] do
+          begin
+            FXH     := Fields[0].AsString;
+            FTruck  := Fields[1].AsString;
+            FType   := sFlag_Type_SDS;
+
+            FUsed := 0;
+            SetLength(FData, 0);
+          end;
         end;
 
-        Inc(nIdx);
         Next;
       end;
     end;
@@ -590,13 +667,15 @@ begin
 end;
 
 //Date: 2018-04-07
-//Parm: 样本索引
+//Parm: 样本索引;类型
 //Desc: 载入nIndex样本的数据
-procedure TTruckManager.LoadWQSimpleData(const nIndex: Integer);
+procedure TTruckManager.LoadWQSimpleData(const nIndex: Integer; const nType: string);
 begin
   FSyncLock.Enter;
   try
+    FWQSimplesType := nType;
     FWQSimplesIndex := nIndex;
+    
     FWaiter.Wakeup(True);
     FWaiterWQSimple.EnterWait;
   finally
@@ -614,11 +693,11 @@ var nIdx,nInt,nLen: Integer;
 begin
   Result := False;
   nInt := -1;
-  nLen := Length(FWQSimples);
+  nLen := Length(FWQSimplesVMAS);
 
   if nLen < 1 then
   begin
-    WriteLog('尾气样本数据为空.');
+    WriteLog('VMAS尾气样本数据为空.');
     Exit;
   end;
 
@@ -627,8 +706,8 @@ begin
     nInt := Random(nLen);
     if nInt >= nLen then Continue;
 
-    for nIdx:=Low(FWQSimples) to High(FWQSimples) do
-    if FWQSimples[nInt].FUsed - FWQSimples[nIdx].FUsed >= 2 then
+    for nIdx:=Low(FWQSimplesVMAS) to High(FWQSimplesVMAS) do
+    if FWQSimplesVMAS[nInt].FUsed - FWQSimplesVMAS[nIdx].FUsed >= 2 then
     begin
       nInt := nIdx;
       Break; //样本均匀
@@ -637,12 +716,73 @@ begin
     Break; //命中
   end;
 
-  with FWQSimples[nInt] do
+  with FWQSimplesVMAS[nInt] do
   begin
     nLen := Length(FData);
     if nLen < 1 then
     begin
-      LoadWQSimpleData(nInt);
+      LoadWQSimpleData(nInt, sFlag_Type_VMas);
+      //载入数据
+      nLen := Length(FData);
+    end;
+
+    if nLen < 1 then
+    begin
+      WriteLog(Format('加载车辆[ %s.%s ]错误,数据为空.', [FTruck, FXH]));
+      Exit;
+    end;
+
+    Inc(FUsed);
+    nTruck := FTruck; 
+    SetLength(nData, nLen);
+
+    for nIdx:=Low(FData) to High(FData) do
+      nData[nIdx] := FData[nIdx];
+    //数据合并
+  end;
+
+  Result := True;
+  //done
+end;
+
+//Date: 2018-08-11
+//Parm: 样本车牌;sds数据
+//Desc: 填充样本数据到nData中
+function TTruckManager.FillSDSSimple(var nTruck: string;
+  var nData: TWQDataList): Boolean;
+var nIdx,nInt,nLen: Integer;
+begin
+  Result := False;
+  nInt := -1;
+  nLen := Length(FWQSimplesSDS);
+
+  if nLen < 1 then
+  begin
+    WriteLog('SDS尾气样本数据为空.');
+    Exit;
+  end;
+
+  while True do
+  begin
+    nInt := Random(nLen);
+    if nInt >= nLen then Continue;
+
+    for nIdx:=Low(FWQSimplesSDS) to High(FWQSimplesSDS) do
+    if FWQSimplesSDS[nInt].FUsed - FWQSimplesSDS[nIdx].FUsed >= 2 then
+    begin
+      nInt := nIdx;
+      Break; //样本均匀
+    end;
+
+    Break; //命中
+  end;
+
+  with FWQSimplesSDS[nInt] do
+  begin
+    nLen := Length(FData);
+    if nLen < 1 then
+    begin
+      LoadWQSimpleData(nInt, sFlag_Type_SDS);
       //载入数据
       nLen := Length(FData);
     end;

@@ -3,8 +3,8 @@ object fFormMain: TfFormMain
   Top = 349
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
-  ClientHeight = 495
-  ClientWidth = 681
+  ClientHeight = 484
+  ClientWidth = 643
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -19,8 +19,8 @@ object fFormMain: TfFormMain
   TextHeight = 12
   object SBar1: TStatusBar
     Left = 0
-    Top = 476
-    Width = 681
+    Top = 465
+    Width = 643
     Height = 19
     Panels = <
       item
@@ -33,9 +33,9 @@ object fFormMain: TfFormMain
   object wPage1: TPageControl
     Left = 0
     Top = 80
-    Width = 681
-    Height = 396
-    ActivePage = Sheet1
+    Width = 643
+    Height = 385
+    ActivePage = Sheet2
     Align = alClient
     MultiLine = True
     Style = tsFlatButtons
@@ -45,8 +45,8 @@ object fFormMain: TfFormMain
       object MemoLog: TMemo
         Left = 0
         Top = 22
-        Width = 673
-        Height = 344
+        Width = 635
+        Height = 333
         Align = alClient
         ImeName = #35895#27468#25340#38899#36755#20837#27861' 2'
         ScrollBars = ssBoth
@@ -55,13 +55,13 @@ object fFormMain: TfFormMain
       object Panel1: TPanel
         Left = 0
         Top = 0
-        Width = 673
+        Width = 635
         Height = 22
         Align = alTop
         BevelOuter = bvNone
         TabOrder = 1
         DesignSize = (
-          673
+          635
           22)
         object CheckSrv: TCheckBox
           Left = 2
@@ -73,7 +73,7 @@ object fFormMain: TfFormMain
           OnClick = CheckSrvClick
         end
         object CheckDetail: TCheckBox
-          Left = 576
+          Left = 538
           Top = 2
           Width = 97
           Height = 17
@@ -82,7 +82,7 @@ object fFormMain: TfFormMain
           TabOrder = 1
         end
         object CheckShowLog: TCheckBox
-          Left = 488
+          Left = 450
           Top = 2
           Width = 80
           Height = 17
@@ -99,12 +99,12 @@ object fFormMain: TfFormMain
       Caption = #21442#25968#35774#32622
       ImageIndex = 1
       DesignSize = (
-        673
-        366)
+        635
+        355)
       object Group2: TGroupBox
         Left = 5
         Top = 80
-        Width = 661
+        Width = 623
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #28909#38190
@@ -137,7 +137,7 @@ object fFormMain: TfFormMain
       object Group1: TGroupBox
         Left = 5
         Top = 5
-        Width = 661
+        Width = 623
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #22522#26412
@@ -187,7 +187,7 @@ object fFormMain: TfFormMain
       object Group3: TGroupBox
         Left = 5
         Top = 155
-        Width = 661
+        Width = 623
         Height = 70
         Anchors = [akLeft, akTop, akRight]
         Caption = #26631#35782
@@ -232,13 +232,13 @@ object fFormMain: TfFormMain
       object Group4: TGroupBox
         Left = 5
         Top = 230
-        Width = 661
-        Height = 70
+        Width = 623
+        Height = 110
         Anchors = [akLeft, akTop, akRight]
         Caption = #26657#27491
         TabOrder = 3
         object Label1: TLabel
-          Left = 117
+          Left = 116
           Top = 42
           Width = 6
           Height = 12
@@ -247,6 +247,13 @@ object fFormMain: TfFormMain
         object Label2: TLabel
           Left = 389
           Top = 42
+          Width = 6
+          Height = 12
+          Caption = '-'
+        end
+        object Label3: TLabel
+          Left = 116
+          Top = 87
           Width = 6
           Height = 12
           Caption = '-'
@@ -295,13 +302,35 @@ object fFormMain: TfFormMain
           TabOrder = 3
           OnChange = EditHotKey1Change
         end
+        object EditRangeD: TLabeledEdit
+          Left = 12
+          Top = 83
+          Width = 100
+          Height = 20
+          EditLabel.Width = 90
+          EditLabel.Height = 12
+          EditLabel.Caption = '('#24608#36895')'#26377#25928#33539#22260':'
+          TabOrder = 4
+          OnChange = EditHotKey1Change
+        end
+        object EditMaxRangeD: TLabeledEdit
+          Left = 127
+          Top = 83
+          Width = 100
+          Height = 20
+          EditLabel.Width = 90
+          EditLabel.Height = 12
+          EditLabel.Caption = '('#24608#36895')'#26368#22823#33539#22260':'
+          TabOrder = 5
+          OnChange = EditHotKey1Change
+        end
       end
     end
   end
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 681
+    Width = 643
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -311,7 +340,7 @@ object fFormMain: TfFormMain
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 460
+      Width = 422
       Height = 80
       Align = alClient
       AutoSize = True
@@ -985,7 +1014,7 @@ object fFormMain: TfFormMain
       OnClick = Image1Click
     end
     object Image2: TImage
-      Left = 460
+      Left = 422
       Top = 0
       Width = 221
       Height = 80

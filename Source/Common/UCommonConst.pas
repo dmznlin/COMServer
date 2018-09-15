@@ -32,9 +32,12 @@ type
   //尾气检测方式: vams,双怠速,加载减速,自由加速,不支持
 
   TMonStatusItem = (msNoRun, ms2K5, ms3K5, msVStart, msVRun, msVEnd, msVError,
-                    msDStart, msDRun, msDEnd, msDError);
-  //尾气检测状态: 未运行;2K5模式,3K5模式;vmas开始;vmas运行中;vmas结束;vmas异常
-  //      双怠速: 开始,运行中,结束,异常
+                    msDStart, msDRun_2K5, msDRun_DS, msDEnd, msDError,
+                    msIdle);
+  //尾气检测状态: 未运行;2K5模式,3K5模式;
+  //        VMAS: vmas开始;vmas运行中;vmas结束;vmas异常
+  //      双怠速: 开始,2K5取样,怠速取样,怠速结束,结束,异常
+  //    车辆状态: 低转速(怠速)
   TMonStatus = set of TMonStatusItem;
 
   TWQValue = array[0..1] of Char;
@@ -70,6 +73,7 @@ type
   TWQSimpleItem = record
     FXH: string;                      //检测序号
     FTruck: string;                   //检测车辆
+    FType: string;                    //检测类型
     FUsed: Word;                      //使用次数
     FData: TWQDataList;               //数据列表
   end;
@@ -123,6 +127,7 @@ type
     
     FGWDataIndex: Integer;        //发送数据索引
     FGWDataIndexTime: TDateTime;  //数据索引计时
+    FGWDataIndexSDS: Integer;     //双怠速索引(由转速服务控制)
     FGWDataTruck: string;         //样本车牌
     FGWDataLast: Int64;           //采样时间
     FGWDataList: TWQDataList;     //样本数据
@@ -174,9 +179,11 @@ resourcestring
 implementation
 
 const
-  cStatusName: array[msNoRun..msVError] of string = (
+  cStatusName: array[msNoRun..msIdle] of string = (
     '未运行', '2K5模式', '3K5模式',
-    'vmas开始', 'vmas运行中', 'vmas结束', 'vmas异常');
+    'vmas开始', 'vmas运行中', 'vmas结束', 'vmas异常',
+    '双怠速开始', '双怠速-2K5', '双怠速-怠速', '双怠速结束', '双怠速异常',
+    '低速(怠速)');
   //status desc
 
 function MonStatusToStr(const nStatus: TMonStatusItem): string;

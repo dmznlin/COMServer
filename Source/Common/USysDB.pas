@@ -84,6 +84,9 @@ ResourceString
 
   sFlag_Integer       = 'I';                         //整数
   sFlag_Decimal       = 'D';                         //小数
+
+  sFlag_Type_VMas     = 'vmas';                      //vmas
+  sFlag_Type_SDS      = 'sds';                       //双怠速
   
   {*数据表*}
   sTable_Truck        = 'aa_td_runo';                //车辆管理
@@ -91,6 +94,7 @@ ResourceString
   sTable_WQTruck      = 'aa_td_run';                 //尾气待检
   sTable_DDTruck      = 'aa_td_run';                 //大灯待检
   sTable_VMas         = 'z_data_log_f';              //vams样本
+  sTable_SDS          = 'tieing';                    //双怠速样本
 
 var
   gLocalName: string = '';

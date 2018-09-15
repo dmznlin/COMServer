@@ -114,7 +114,8 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, Registry, ULibFun, UMgrCOMM, ZnMD5, USysLoger, UFormInputbox;
+  IniFiles, Registry, ULibFun, UMgrCOMM, ZnMD5, USysLoger, USysDB,
+  UFormInputbox;
 
 const
   cChar_Head       = Char($01);                       //协议头
@@ -513,46 +514,73 @@ begin
         if not IsNumber(nStr, False) then Continue;
         nInt := StrToInt(nStr);
         
-        if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msVError)) then
+        if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msDError)) then
         begin
           nStatus := TMonStatusItem(nInt);
-          FCOMPorts[nIdx].FGWStatus := nStatus;
-          
-          nStr := Format('状态切换: %d线 -> %s', [FCOMPorts[nIdx].FLineNo,
-                  MonStatusToStr(nStatus)]);
-          WriteLog(nStr);
+          if not (nStatus in [msDRun_2K5, msDRun_DS]) then
+          begin
+            nStr := Format('状态切换: %d线 -> %s', [FCOMPorts[nIdx].FLineNo,
+                    MonStatusToStr(nStatus)]);
+            WriteLog(nStr);
+          end;
 
-          if nStatus = msVStart then //vmas开始
+          if nStatus in [ms2K5, ms3K5] then Exit;
+          //无需处理状态
+          FCOMPorts[nIdx].FGWStatus := nStatus;
+                                            
+          if (nStatus = msVStart) or (nStatus = msDStart) then //vmas,sds开始
           with FCOMPorts[nIdx] do
           begin
             FGWDataIndex := 0;
+            FGWDataIndexSDS := 0;
             FGWDataIndexTime := 0;
             //重置索引
-              
-            if (GetTickCount - FGWDataLast > 5 * 60 * 1000) and
-              gTruckManager.FillVMasSimple(FGWDataTruck, FGWDataList) then
+            
+            if GetTickCount - FGWDataLast > 5 * 60 * 1000 then //5分钟重载样本
             begin
-              FGWDataLast := GetTickCount;
-              WriteLog(Format('加载[ %s ]样本成功', [FGWDataTruck]));
+              if (nStatus = msVStart) and
+                 gTruckManager.FillVMasSimple(FGWDataTruck, FGWDataList) then
+              begin
+                FGWDataLast := GetTickCount;
+                WriteLog(Format('加载[ VMAS,%s ]样本成功', [FGWDataTruck]));
+              end;
+
+              if (nStatus = msDStart) and
+                 gTruckManager.FillSDSSimple(FGWDataTruck, FGWDataList) then
+              begin
+                FGWDataLast := GetTickCount;
+                WriteLog(Format('加载[ SDS,%s ]样本成功', [FGWDataTruck]));
+              end;
             end;
           end else
 
-          if nStatus = msVEnd then //vmas结束
+          if (nStatus = msVEnd) or (nStatus = msDEnd) then //vmas,sds结束
           begin
             FGWDataIndex := 0;
+            FGWDataIndexSDS := 0;
             FGWDataIndexTime := 0;
             FCOMPorts[nIdx].FGWDataLast := 0;
-            
+
             FGWDataTruck := '';
             SetLength(FCOMPorts[nIdx].FGWDataList, 0);
             //清理样本
           end else
 
-          if nStatus = msVError then //vmas错误
+          if (nStatus = msVError) or (nStatus = msDError) then //vmas,sds错误
           begin
             FGWDataIndex := 0;
             FGWDataIndexTime := 0;
             //重置索引
+          end else
+
+          if (nStatus = msDRun_2K5) or (nStatus = msDRun_DS) then //双怠速取样时序
+          begin
+            nStr := nList.Values['DTime'];
+            FGWDataIndexSDS := StrToInt(nStr);
+
+            nStr := Format('[ SDS,%d线 ]使用样本第[ %d ]秒数据.', [
+                    FCOMPorts[nIdx].FLineNo, FGWDataIndexSDS]);
+            WriteLog(nStr);
           end;
         end;
       end;
@@ -608,7 +636,9 @@ begin
       FWQStatusTime := 0;
 
       FGWDataIndex := 0;
+      FGWDataIndexSDS := 0;
       FGWDataIndexTime := 0;
+      
       FGWStatus := msNoRun;
       FGWDataLast := 0;
       SetLength(FGWDataList, 0);
@@ -1374,7 +1404,8 @@ begin
       {$IFDEF WQUseSimple}
       FSyncLock.Enter;
       try
-        if (nCheckType = CTvmas) and (FGWStatus = msVRun) then
+        if ((nCheckType = CTvmas) and (FGWStatus = msVRun)) or  //vmas
+           ((nCheckType = CTsds) and (FGWDataIndexSDS > 0)) then //双怠速
         begin
           if FGWDataIndexTime = 0 then
           begin
@@ -1759,8 +1790,15 @@ begin
     if FGWDataIndexTime = 0 then
       FGWDataIndexTime := Time();
     //first
-    
-    if FGWDataIndex < nInt then
+
+    if FGWDataIndexSDS > 0 then //双怠速模式,启用工位指定的索引
+    begin
+      if FGWDataIndexSDS <= nInt then
+           FGWDataIndex := FGWDataIndexSDS
+      else FGWDataIndex := nInt;
+    end else
+
+    if FGWDataIndex < nInt then //vmas模式,使用计时索引
     begin
       DecodeTime(Time() - FGWDataIndexTime, nH, nM, nS, nMS);
       if nM * 60 + nS <= nInt then
@@ -1804,7 +1842,7 @@ begin
             if nDirect > 0 then
                  Word2Item(FO2, Item2Word(FO2) + nVal)
             else Word2Item(FO2, Item2Word(FO2) - nVal);
-            end;
+          end;
       end;
     end; //微调数据
 

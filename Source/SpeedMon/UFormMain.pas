@@ -68,6 +68,9 @@ type
     CheckDetail: TCheckBox;
     CheckShowLog: TCheckBox;
     IdTCPClient1: TIdTCPClient;
+    EditRangeD: TLabeledEdit;
+    Label3: TLabel;
+    EditMaxRangeD: TLabeledEdit;
     procedure Timer1Timer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -218,6 +221,13 @@ begin
         if nStr <> '' then nStatus := ms3K5;
       end else
 
+      if Pos('IDLE', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msIdle;
+      end else
+
+      //------------------------------------------------------------------------
       if Pos('VSTART', nStr) = 1 then
       begin
         nStr := Trim(nIni.ReadString(cSection, nStr, ''));
@@ -240,8 +250,40 @@ begin
       begin
         nStr := Trim(nIni.ReadString(cSection, nStr, ''));
         if nStr <> '' then nStatus := msVError;
+      end else
+
+      //------------------------------------------------------------------------
+      if Pos('DSTART', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msDStart;
+      end else
+
+      if Pos('DRUN2K5', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msDRun_2K5;
+      end else
+
+      if Pos('DRUNDS', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msDRun_DS;
+      end else
+
+      if Pos('DEND', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msDEnd;
+      end else
+      
+      if Pos('DERROR', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msDError;
       end else Continue;
 
+      //------------------------------------------------------------------------
       if nStatus <> msNoRun then
       begin
         nLen := Length(gStatusFlags);
@@ -303,6 +345,8 @@ begin
       EditMaxRange2.Text := ReadString('Config', 'DataMaxRange2', '2200-2800');
       EditRange3.Text := ReadString('Config', 'DataRange3', '3400-3600');
       EditMaxRange3.Text := ReadString('Config', 'DataMaxRange3', '3200-3800');
+      EditRangeD.Text := ReadString('Config', 'DataRangeD', '800-900');
+      EditMaxRangeD.Text := ReadString('Config', 'DataMaxRangeD', '0-1300');
 
       FLineNo := ReadString('Config', 'LineNo', '0');
       FRemoteHost := ReadString('Config', 'RemoteHost', '127.0.0.1');
@@ -332,6 +376,8 @@ begin
       nIni.WriteString('Config', 'DataMaxRange2', EditMaxRange2.Text);
       nIni.WriteString('Config', 'DataRange3', EditRange3.Text);
       nIni.WriteString('Config', 'DataMaxRange3', EditMaxRange3.Text);
+      nIni.WriteString('Config', 'DataRangeD', EditRangeD.Text);
+      nIni.WriteString('Config', 'DataMaxRangeD', EditMaxRangeD.Text);
 
       nReg := TRegistry.Create;
       nReg.RootKey := HKEY_CURRENT_USER;
@@ -872,6 +918,7 @@ begin
     Exit; //保持原随机
   end;
 
+  Result := 0;
   while True do
   begin
     Result := Random(nSeed);
@@ -908,6 +955,11 @@ begin
     if ms3K5 in FNowStatus then
     begin
       SplitRangeValue(EditRange3.Text, EditMaxRange3.Text);
+    end else
+
+    if msIdle in FNowStatus then
+    begin
+      SplitRangeValue(EditRangeD.Text, EditMaxRangeD.Text);
     end;
   end;
 

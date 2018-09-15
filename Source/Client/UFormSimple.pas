@@ -6,7 +6,8 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   UDataModule, cxGraphics, cxControls, cxLookAndFeels,
   cxLookAndFeelPainters, Menus, cxContainer, cxEdit, cxTextEdit, cxMemo,
-  dxLayoutControl, StdCtrls, cxButtons, cxCheckBox;
+  dxLayoutControl, StdCtrls, cxButtons, cxCheckBox, cxMaskEdit,
+  cxDropDownEdit;
 
 type
   TfFormSimle = class(TForm)
@@ -22,6 +23,8 @@ type
     dxLayoutControl1Item3: TdxLayoutItem;
     EditXH: TcxTextEdit;
     dxLayoutControl1Item4: TdxLayoutItem;
+    EditType: TcxComboBox;
+    dxLayoutControl1Item5: TdxLayoutItem;
     procedure BtnOKClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -55,6 +58,7 @@ end;
 
 procedure TfFormSimle.FormCreate(Sender: TObject);
 begin
+  EditType.ItemIndex := 0;
   LoadFormConfig(Self);
 end;
 
@@ -66,6 +70,12 @@ end;
 procedure TfFormSimle.BtnOKClick(Sender: TObject);
 var nStr: string;
 begin
+  if EditType.ItemIndex < 0 then
+  begin
+    ShowMsg('ÇëÑ¡ÔñÀàÐÍ', sHint);
+    Exit;
+  end;
+
   EditTruck.Text := Trim(EditTruck.Text);
   if EditTruck.Text = '' then
   begin
@@ -85,6 +95,10 @@ begin
     nStr := MakeSQLByStr([
             SF('t_truck', EditTruck.Text),
             SF('t_jcxh', EditXH.Text),
+            SF_IF([SF('t_type', sFlag_Type_VMas),
+                   SF('t_type', sFlag_Type_SDS)], EditType.ItemIndex),
+            //xxxxx
+
             SF('t_user', gLocalName),
             SF('t_time', 'now()', sfVal),
             SF('t_valid', 0, sfVal)

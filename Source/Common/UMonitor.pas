@@ -378,7 +378,7 @@ end;
 
 procedure TMonThread.DoExecute;
 var nStr: string;
-    nIdx: Integer;
+    nIdx,nPos: Integer;
     nHwnd: THandle;
 begin
   if (FProcessID = 0) or (FWindowID = 0) then
@@ -446,7 +446,7 @@ begin
   if Pos('2500', nStr) > 0 then
   begin
     FTmpStatus := FTmpStatus + [ms2K5];
-    if FTmpStatus <> FStatus then
+    if not (ms2K5 in FStatus) then
       WriteLog('开始2500rpm监控.');
     //xxxxx
   end else
@@ -454,7 +454,7 @@ begin
   if Pos('3500', nStr) > 0 then
   begin
     FTmpStatus := FTmpStatus + [ms3K5];
-    if FTmpStatus <> FStatus then
+    if not (ms3K5 in FStatus) then
       WriteLog('开始3500rpm监控.');
     //xxxxx
   end;
@@ -463,12 +463,34 @@ begin
   if Pos(gStatusFlags[nIdx].FKeyWord, nStr) > 0 then
   begin
     FTmpStatus := FTmpStatus + [gStatusFlags[nIdx].FStatus];
-    if FTmpStatus <> FStatus then
+    if (FTmpStatus <> FStatus) or
+       (gStatusFlags[nIdx].FStatus in [msDRun_2K5, msDRun_DS]) then
     begin
+      if gStatusFlags[nIdx].FStatus = msDRun_2K5 then //双怠速2k5取样
+      begin
+        nPos := Pos('rpm', nStr); //请保持2500±100 rpm 29
+        System.Delete(nStr, 1, nPos + 3);
+
+        if IsNumber(nStr, False) then
+             nStr := IntToStr(30 - StrToInt(nStr))
+        else nStr := '1';
+      end else
+
+      if gStatusFlags[nIdx].FStatus = msDRun_DS then //双怠速怠速取样
+      begin
+        nPos := Pos('采样', nStr); //保持怠速 正在采样 29
+        System.Delete(nStr, 1, nPos + 4);
+
+        if IsNumber(nStr, False) then
+             nStr := IntToStr(60 - StrToInt(nStr))
+        else nStr := '30';
+      end else nStr := '';
+
       with FOwner do
       begin
         FListA.Values['LineNo'] := FLineNo;
         FListA.Values['Status'] := IntToStr(Ord(gStatusFlags[nIdx].FStatus));
+        FListA.Values['DTime']  := nStr;
         FRemoteSync.SyncData(EncodeBase64(FListA.Text));
       end;
 

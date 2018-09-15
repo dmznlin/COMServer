@@ -17,8 +17,8 @@ object fFormClient: TfFormClient
   TextHeight = 12
   object dxStatusBar1: TdxStatusBar
     Left = 0
-    Top = 511
-    Width = 696
+    Top = 499
+    Width = 688
     Height = 20
     Panels = <>
     PaintStyle = stpsUseLookAndFeel
@@ -31,14 +31,14 @@ object fFormClient: TfFormClient
   object wPage: TcxPageControl
     Left = 0
     Top = 80
-    Width = 696
-    Height = 431
-    ActivePage = Sheet2
+    Width = 688
+    Height = 419
+    ActivePage = Sheet4
     Align = alClient
     TabOrder = 1
     OnPageChanging = wPagePageChanging
-    ClientRectBottom = 431
-    ClientRectRight = 696
+    ClientRectBottom = 419
+    ClientRectRight = 688
     ClientRectTop = 23
     object Sheet3: TcxTabSheet
       Caption = #21442#25968#35774#32622
@@ -46,8 +46,8 @@ object fFormClient: TfFormClient
       object dxLayoutControl1: TdxLayoutControl
         Left = 0
         Top = 0
-        Width = 696
-        Height = 408
+        Width = 688
+        Height = 396
         Align = alClient
         TabOrder = 0
         TabStop = False
@@ -258,8 +258,8 @@ object fFormClient: TfFormClient
       object cxGrid3: TcxGrid
         Left = 0
         Top = 0
-        Width = 696
-        Height = 353
+        Width = 688
+        Height = 341
         Align = alClient
         BorderStyle = cxcbsNone
         TabOrder = 0
@@ -277,6 +277,10 @@ object fFormClient: TfFormClient
           object cxView3Column1: TcxGridDBColumn
             Caption = #26816#27979#27969#27700
             DataBinding.FieldName = 't_jcxh'
+          end
+          object cxView3Column2: TcxGridDBColumn
+            Caption = #26816#27979#31867#22411
+            DataBinding.FieldName = 't_type'
           end
           object cxGridDBColumn2: TcxGridDBColumn
             Caption = #36710#29260#21495
@@ -297,7 +301,7 @@ object fFormClient: TfFormClient
       end
       object cxGroupBox3: TcxGroupBox
         Left = 0
-        Top = 353
+        Top = 341
         Align = alBottom
         Caption = #24037#20855
         PanelStyle.Active = True
@@ -307,7 +311,7 @@ object fFormClient: TfFormClient
         Style.TransparentBorder = True
         TabOrder = 1
         Height = 55
-        Width = 696
+        Width = 688
         object BtnAddSimple: TcxButton
           Left = 170
           Top = 22
@@ -381,8 +385,8 @@ object fFormClient: TfFormClient
       object cxGrid1: TcxGrid
         Left = 0
         Top = 0
-        Width = 696
-        Height = 353
+        Width = 688
+        Height = 341
         Align = alClient
         BorderStyle = cxcbsNone
         TabOrder = 0
@@ -415,7 +419,7 @@ object fFormClient: TfFormClient
       end
       object cxGroupBox1: TcxGroupBox
         Left = 0
-        Top = 353
+        Top = 341
         Align = alBottom
         Caption = #24037#20855
         PanelStyle.Active = True
@@ -425,7 +429,7 @@ object fFormClient: TfFormClient
         Style.TransparentBorder = True
         TabOrder = 1
         Height = 55
-        Width = 696
+        Width = 688
         object BtnRefresh: TcxButton
           Left = 10
           Top = 22
@@ -445,8 +449,8 @@ object fFormClient: TfFormClient
       object cxGrid2: TcxGrid
         Left = 0
         Top = 0
-        Width = 696
-        Height = 353
+        Width = 688
+        Height = 341
         Align = alClient
         BorderStyle = cxcbsNone
         TabOrder = 0
@@ -496,7 +500,7 @@ object fFormClient: TfFormClient
       end
       object cxGroupBox2: TcxGroupBox
         Left = 0
-        Top = 353
+        Top = 341
         Align = alBottom
         Caption = #24037#20855
         PanelStyle.Active = True
@@ -506,7 +510,7 @@ object fFormClient: TfFormClient
         Style.TransparentBorder = True
         TabOrder = 1
         Height = 55
-        Width = 696
+        Width = 688
         object BtnAdd: TcxButton
           Left = 170
           Top = 22
@@ -578,7 +582,7 @@ object fFormClient: TfFormClient
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 696
+    Width = 688
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -588,7 +592,7 @@ object fFormClient: TfFormClient
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 475
+      Width = 467
       Height = 80
       Align = alClient
       AutoSize = True
@@ -1261,7 +1265,7 @@ object fFormClient: TfFormClient
       Stretch = True
     end
     object Image2: TImage
-      Left = 475
+      Left = 467
       Top = 0
       Width = 221
       Height = 80
