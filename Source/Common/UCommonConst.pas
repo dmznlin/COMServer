@@ -74,6 +74,7 @@ type
     FXH: string;                      //检测序号
     FTruck: string;                   //检测车辆
     FType: string;                    //检测类型
+    FIsBlack: Boolean;                //是否黑名单
     FUsed: Word;                      //使用次数
     FData: TWQDataList;               //数据列表
   end;

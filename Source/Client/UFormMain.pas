@@ -106,6 +106,9 @@ type
     EditFindSimple: TcxButtonEdit;
     cxView3Column1: TcxGridDBColumn;
     cxView3Column2: TcxGridDBColumn;
+    cxView2Column6: TcxGridDBColumn;
+    cxView2Column7: TcxGridDBColumn;
+    cxView3Column3: TcxGridDBColumn;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;

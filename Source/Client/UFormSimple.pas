@@ -25,6 +25,8 @@ type
     dxLayoutControl1Item4: TdxLayoutItem;
     EditType: TcxComboBox;
     dxLayoutControl1Item5: TdxLayoutItem;
+    Check1: TcxCheckBox;
+    dxLayoutControl1Item6: TdxLayoutItem;
     procedure BtnOKClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -33,9 +35,6 @@ type
   public
     { Public declarations }
   end;
-
-var
-  gLocalName: string = '';
 
 function ShowSimpleForm: Boolean;
 //Èë¿Úº¯Êý
@@ -97,6 +96,10 @@ begin
             SF('t_jcxh', EditXH.Text),
             SF_IF([SF('t_type', sFlag_Type_VMas),
                    SF('t_type', sFlag_Type_SDS)], EditType.ItemIndex),
+            //xxxxx
+
+            SF_IF([SF('t_allow', 0, sfVal),
+                   SF('t_allow', 1, sfVal)], Check1.Checked),
             //xxxxx
 
             SF('t_user', gLocalName),

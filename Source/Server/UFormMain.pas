@@ -539,14 +539,14 @@ begin
             if GetTickCount - FGWDataLast > 5 * 60 * 1000 then //5分钟重载样本
             begin
               if (nStatus = msVStart) and
-                 gTruckManager.FillVMasSimple(FGWDataTruck, FGWDataList) then
+                 gTruckManager.FillVMasSimple(FCOMPorts[nIdx].FLineNo, FGWDataTruck, FGWDataList) then
               begin
                 FGWDataLast := GetTickCount;
                 WriteLog(Format('加载[ VMAS,%s ]样本成功', [FGWDataTruck]));
               end;
 
               if (nStatus = msDStart) and
-                 gTruckManager.FillSDSSimple(FGWDataTruck, FGWDataList) then
+                 gTruckManager.FillSDSSimple(FCOMPorts[nIdx].FLineNo, FGWDataTruck, FGWDataList) then
               begin
                 FGWDataLast := GetTickCount;
                 WriteLog(Format('加载[ SDS,%s ]样本成功', [FGWDataTruck]));

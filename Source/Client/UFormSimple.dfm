@@ -1,8 +1,8 @@
 object fFormSimle: TfFormSimle
   Left = 634
   Top = 350
-  Width = 410
-  Height = 201
+  Width = 365
+  Height = 228
   BorderIcons = [biSystemMenu, biMinimize]
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,30 +19,30 @@ object fFormSimle: TfFormSimle
   object dxLayoutControl1: TdxLayoutControl
     Left = 0
     Top = 0
-    Width = 394
-    Height = 162
+    Width = 349
+    Height = 189
     Align = alClient
     TabOrder = 0
     TabStop = False
     AutoContentSizes = [acsWidth, acsHeight]
     LookAndFeel = FDM.dxLayoutWeb1
     object BtnOK: TcxButton
-      Left = 248
-      Top = 129
+      Left = 203
+      Top = 156
       Width = 65
       Height = 22
       Caption = #20445#23384
-      TabOrder = 3
+      TabOrder = 4
       OnClick = BtnOKClick
     end
     object BtnExit: TcxButton
-      Left = 318
-      Top = 129
+      Left = 273
+      Top = 156
       Width = 65
       Height = 22
       Caption = #21462#28040
       ModalResult = 2
-      TabOrder = 4
+      TabOrder = 5
     end
     object EditTruck: TcxTextEdit
       Left = 81
@@ -61,6 +61,7 @@ object fFormSimle: TfFormSimle
     object EditType: TcxComboBox
       Left = 81
       Top = 86
+      ParentFont = False
       Properties.DropDownListStyle = lsEditFixedList
       Properties.ItemHeight = 20
       Properties.Items.Strings = (
@@ -68,6 +69,15 @@ object fFormSimle: TfFormSimle
         #21452#24608#36895)
       TabOrder = 2
       Width = 121
+    end
+    object Check1: TcxCheckBox
+      Left = 11
+      Top = 156
+      Caption = #40657#21517#21333#26679#26412
+      ParentFont = False
+      TabOrder = 3
+      Transparent = True
+      Width = 94
     end
     object dxLayoutControl1Group_Root: TdxLayoutGroup
       ShowCaption = False
@@ -100,6 +110,12 @@ object fFormSimle: TfFormSimle
         Hidden = True
         LayoutDirection = ldHorizontal
         ShowBorder = False
+        object dxLayoutControl1Item6: TdxLayoutItem
+          Caption = #40657#21517#21333#26679#26412
+          ShowCaption = False
+          Control = Check1
+          ControlOptions.ShowBorder = False
+        end
         object dxLayoutControl1Item1: TdxLayoutItem
           AutoAligns = [aaVertical]
           AlignHorz = ahRight

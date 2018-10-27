@@ -22,6 +22,23 @@ type
     FCheckType: TWQCheckType;  //尾气检测
   end;
   TTruckItems = array of TTruckItem;
+
+  TVIPType = (vtVIP, vtBlack); //vip,黑名单
+  TVIPItem = record
+    FTruck: string;            //车牌号
+    FType: TVIPType;           //类型
+    FSimple: string;           //检测样本序号
+    FSTruck: string;           //检测样本车辆
+  end;
+  TVIPItems = array of TVIPItem;
+
+  TSQLType = (stVIPSimple);    //vip检测样本
+  TSQLItem = record
+    FSQL: string;              //语句
+    FType: TSQLType;           //类型
+    FValid: Boolean;           //有效
+  end;
+  TSQLItems = array of TSQLItem;
   
   TTruckManager = class(TThread)
   private
@@ -32,10 +49,12 @@ type
     FSQLQuery: TUniQuery;
     FSQLCmd: TUniQuery;
     //数据库对象
+    FSQLItems: TSQLItems;
+    //待执行语句
     FTrucks: TTruckItems;
-    FVIPTrucks: TStrings;
+    FVIPTrucks: TVIPItems;
     FTempTrucks: TTruckItems;
-    FTempVIPTrucks: TStrings;
+    FTempVIPTrucks: TVIPItems;
     //车辆列表
     FWQSimplesType: string;
     FWQSimplesIndex: Integer;
@@ -52,6 +71,7 @@ type
     procedure DoExecute;
     //执行线程
     function MakeVIPTruck: string;
+    function FindVIPTruck(const nTruck: string): Integer;
     function GetTruckItem(const nTruck: string): Integer;
     procedure DoLoadWQSimple(const nIndex: Integer);
     procedure LoadWQSimpleData(const nIndex: Integer; const nType: string);
@@ -68,9 +88,11 @@ type
       var nTruck: string; const nInBlack: PBoolean = nil;
       const nWQCheckType: PInteger = nil): Boolean;
     //车辆在线
-    function FillVMasSimple(var nTruck: string; var nData: TWQDataList): Boolean;
+    function FillVMasSimple(const nLineNo: Integer; var nTruck: string;
+      var nData: TWQDataList): Boolean;
     //vmas样本
-    function FillSDSSimple(var nTruck: string; var nData: TWQDataList): Boolean;
+    function FillSDSSimple(const nLineNo: Integer;
+      var nTruck: string; var nData: TWQDataList): Boolean;
     //vmas样本
   end;
 
@@ -90,9 +112,9 @@ begin
   FreeOnTerminate := False;
   FDBConfig := nFileName;
 
+  SetLength(FSQLItems, 0);
   SetLength(FTrucks, 0);
-  FVIPTrucks := TStringList.Create;
-  FTempVIPTrucks := TStringList.Create;
+  SetLength(FVIPTrucks, 0);
 
   FWaiter := TWaitObject.Create;
   FWaiter.Interval := 5 * 1000;
@@ -112,11 +134,8 @@ begin
   FreeAndNil(FDBConnWQ);
   FreeAndNil(FSQLQuery);
   FreeAndNil(FSQLCmd);
-  
-  FTempVIPTrucks.Free;
-  FVIPTrucks.Free;
-  FSyncLock.Free;
 
+  FSyncLock.Free; 
   FWaiterWQSimple.Free;
   FWaiter.Free;
   inherited;
@@ -156,12 +175,11 @@ begin
     with FTrucks[nIdx] do
     begin
       if not FEnable then Continue;
-      i := FVIPTrucks.IndexOf(FTruck);
+      i := FindVIPTruck(FTruck);
 
       if i >= 0 then
       begin
-        i := Integer(FVIPTrucks.Objects[i]);
-        if i = 0 then
+        if FVIPTrucks[i].FType = vtBlack then
              nStr := '黑名单'
         else nStr := 'VIP';
       end else nStr := '';
@@ -182,14 +200,13 @@ begin
     end;
 
     nList.Add(#13#10 + 'VIP车辆:');
-    for nIdx:=0 to FVIPTrucks.Count-1 do
+    for nIdx:=Low(FVIPTrucks) to High(FVIPTrucks) do
     begin
-      i := Integer(FVIPTrucks.Objects[nIdx]);
-      if i = 0 then
+      if FVIPTrucks[nIdx].FType = vtBlack then
            nStr := '黑名单'
       else nStr := 'VIP';
 
-      nStr := Format('|--- %2d.%-8s [%-6s]', [nIdx+1, FVIPTrucks[nIdx], nStr]);
+      nStr := Format('|--- %2d.%-8s [%-6s]', [nIdx+1, FVIPTrucks[nIdx].FTruck, nStr]);
       nList.Add(nStr);
     end;
 
@@ -290,7 +307,7 @@ end;
 
 //------------------------------------------------------------------------------
 procedure TTruckManager.Execute;
-var nIdx: Integer;
+var nIdx,nInt: Integer;
 begin
   FDBConnDD := TUniConnection.Create(nil);
   FDBConnWQ := TUniConnection.Create(nil);
@@ -331,6 +348,27 @@ begin
     if nIdx >= 0 then
       FWaiterWQSimple.Wakeup();
     //唤醒
+
+    FSyncLock.Enter;
+    try
+      nInt := Length(FSQLItems);
+      if nInt > 0 then
+      begin
+        nInt := 0;
+        for nIdx:=Low(FSQLItems) to High(FSQLItems) do
+        if FSQLItems[nIdx].FValid then
+        begin
+          Inc(nInt);
+          Break;
+        end;
+
+        if nInt < 1 then
+          SetLength(FSQLItems, 0);
+        //clear sql array
+      end;
+    finally
+      FSyncLock.Leave;
+    end;
   except
     on nErr: Exception do
     begin
@@ -437,33 +475,70 @@ procedure TTruckManager.DoExecute;
 var nStr: string;
     i,nIdx: Integer;
 begin
-  FTempVIPTrucks.Clear;
+  SetLength(FTempVIPTrucks, 0);
   FSQLQuery.Close;
   
   if FDBConnWQ.Tag > 0 then
        FSQLQuery.Connection := FDBConnWQ
   else FSQLQuery.Connection := FDBConnDD; //切换链路
 
-  nStr := 'select t_truck,t_allow from %s where t_valid=0 order by id asc';
+  nStr := 'select t_truck,t_allow,t_simple,t_struck from %s ' +
+          'where t_valid=0 order by id asc';
   FSQLQuery.SQL.Text := Format(nStr, [sTable_Truck]);
   FSQLQuery.Open;
 
   if FSQLQuery.Active and (FSQLQuery.RecordCount > 0) then
   with FSQLQuery do
   begin
+    SetLength(FTempVIPTrucks, RecordCount);
+    nIdx := 0;
     First;
 
     while not Eof do
     begin
-      nIdx := Fields[1].AsInteger;
-      FTempVIPTrucks.AddObject(Fields[0].AsString, Pointer(nIdx));
+      with FTempVIPTrucks[nIdx] do
+      begin
+        FTruck  := Fields[0].AsString;
+        if Fields[1].AsInteger = 0 then
+             FType := vtBlack
+        else FType := vtVIP;
+
+        FSimple := Fields[2].AsString;
+        FSTruck := Fields[3].AsString;
+      end;
+
+      Inc(nIdx);
       Next;
     end;
   end;
 
+  FSyncLock.Enter;
+  try
+    nIdx := Length(FSQLItems);
+    if nIdx > 0 then
+    begin
+      FSQLCmd.Close;
+      FSQLCmd.Connection := FSQLQuery.Connection;
+      //设置链路
+
+      for nIdx:=Low(FSQLItems) to High(FSQLItems) do
+      if FSQLItems[nIdx].FValid and (FSQLItems[nIdx].FType = stVIPSimple) then
+      begin
+        FSQLItems[nIdx].FValid := False;
+        FSQLCmd.Close;
+        FSQLCmd.SQL.Text := FSQLItems[nIdx].FSQL;
+        FSQLCmd.Execute; //更新VIP车辆专用样本
+      end;
+    end;    
+  finally
+    FSyncLock.Leave;
+  end;   
+
+  //----------------------------------------------------------------------------
   if (Length(FWQSimplesVMAS) < 1) and (Length(FWQSimplesSDS) < 1) then
   begin
-    nStr := 'select t_jcxh,t_truck,t_type from %s where t_valid=0 order by id asc';
+    nStr := 'select t_jcxh,t_truck,t_type,t_allow from %s ' +
+            'where t_valid=0 order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_Simple]);
     FSQLQuery.Open;
 
@@ -485,6 +560,7 @@ begin
             FXH     := Fields[0].AsString;
             FTruck  := Fields[1].AsString;
             FType   := sFlag_Type_VMAS;
+            FIsBlack := Fields[3].AsInteger = 0;
 
             FUsed := 0;
             SetLength(FData, 0);
@@ -501,6 +577,7 @@ begin
             FXH     := Fields[0].AsString;
             FTruck  := Fields[1].AsString;
             FType   := sFlag_Type_SDS;
+            FIsBlack := Fields[3].AsInteger = 0;
 
             FUsed := 0;
             SetLength(FData, 0);
@@ -590,8 +667,7 @@ begin
   //----------------------------------------------------------------------------
   FSyncLock.Enter;
   try
-    FVIPTrucks.Clear;
-    FVIPTrucks.AddStrings(FTempVIPTrucks);
+    FVIPTrucks := FTempVIPTrucks;
     //combin vip list
 
     for nIdx:=Low(FTrucks) to High(FTrucks) do
@@ -607,6 +683,23 @@ begin
   finally
     FSyncLock.Leave;
   end;   
+end;
+
+//Date: 2018-09-19
+//Parm: 车牌号
+//Desc: 检索nTruck在vip列表中的索引
+function TTruckManager.FindVIPTruck(const nTruck: string): Integer;
+var nIdx: Integer;
+begin
+  Result := -1;
+  if nTruck = '' then Exit;
+  
+  for nIdx:=Low(FVIPTrucks) to High(FVIPTrucks) do
+  if CompareText(nTruck, FVIPTrucks[nIdx].FTruck) = 0 then
+  begin
+    Result := nIdx;
+    Break;
+  end;
 end;
 
 //Date: 2016-10-15
@@ -635,14 +728,14 @@ begin
       Exit;
     end;
 
-    Result := FVIPTrucks.IndexOf(MakeVIPTruck) >= 0;
+    Result := FindVIPTruck(MakeVIPTruck) >= 0;
     if Result then Exit;
 
     for nIdx:=Low(FTrucks) to High(FTrucks) do
     with FTrucks[nIdx] do
     if FEnable and (FType = nType) and (FLine = nLine) then
     begin
-      i := FVIPTrucks.IndexOf(FTruck);
+      i := FindVIPTruck(FTruck);
       Result := i >= 0;
 
       if Result then
@@ -651,7 +744,7 @@ begin
         //truck no
         
         if Assigned(nInBlack) then
-          nInBlack^ := Integer(FVIPTrucks.Objects[i]) = 0;
+          nInBlack^ := FVIPTrucks[i].FType = vtBlack;
         //xxxxx
 
         if Assigned(nWQCheckType) then
@@ -687,12 +780,13 @@ end;
 //Date: 2018-04-07
 //Parm: 样本车牌;vmas数据
 //Desc: 填充样本数据到nData中
-function TTruckManager.FillVMasSimple(var nTruck: string;
+function TTruckManager.FillVMasSimple(const nLineNo: Integer; var nTruck: string;
  var nData: TWQDataList): Boolean;
-var nIdx,nInt,nLen: Integer;
+var nSimple,nOnline: string;
+    nIdx,nInt,nLen,nLoop: Integer;
+    nIsVIP: Boolean;
 begin
   Result := False;
-  nInt := -1;
   nLen := Length(FWQSimplesVMAS);
 
   if nLen < 1 then
@@ -701,21 +795,72 @@ begin
     Exit;
   end;
 
-  while True do
-  begin
-    nInt := Random(nLen);
-    if nInt >= nLen then Continue;
-
-    for nIdx:=Low(FWQSimplesVMAS) to High(FWQSimplesVMAS) do
-    if FWQSimplesVMAS[nInt].FUsed - FWQSimplesVMAS[nIdx].FUsed >= 2 then
+  FSyncLock.Enter;
+  try
+    nOnline := '';
+    for nIdx:=Low(FTrucks) to High(FTrucks) do
+    with FTrucks[nIdx] do
+    if FEnable and (FType = ctWQ) and (FLine = nLineNo) then
     begin
-      nInt := nIdx;
-      Break; //样本均匀
+      nOnline := FTruck; //当前线上车辆
+      Break;
     end;
 
-    Break; //命中
+    nSimple := '';
+    nIdx := FindVIPTruck(nOnline);
+    nIsVIP := nIdx >= 0;
+
+    if nIsVIP then
+      nSimple := FVIPTrucks[nIdx].FSimple;
+    //车辆指定样本
+
+    if nSimple <> '' then
+      WriteLog(Format('[ %d ]线车辆[ %s ]指定样本[ %s ].', [nLineNo, nOnline, nSimple]));
+    //xxxxx
+  finally
+    FSyncLock.Leave;
   end;
 
+  nInt := -1;
+  if nSimple <> '' then
+  begin
+    for nIdx:=Low(FWQSimplesVMAS) to High(FWQSimplesVMAS) do
+    if FWQSimplesVMAS[nIdx].FXH = nSimple then
+    begin
+      nInt := nIdx; //指定序号优先选中
+      Break;
+    end;
+  end;
+  
+  if nInt < 0 then
+  begin
+    nLoop := 0;
+
+    while True do
+    begin
+      Inc(nLoop);
+      if nLoop > 1000 then
+      begin
+        WriteLog('无法选中有效的VMAS样本,VIP样本数量不足.');
+        Exit;
+      end;
+
+      nInt := Random(nLen);
+      if nInt >= nLen then Continue;
+      if FWQSimplesVMAS[nInt].FIsBlack then Continue;
+
+      for nIdx:=Low(FWQSimplesVMAS) to High(FWQSimplesVMAS) do
+      if (not FWQSimplesVMAS[nIdx].FIsBlack) and
+         (FWQSimplesVMAS[nInt].FUsed - FWQSimplesVMAS[nIdx].FUsed >= 2) then
+      begin
+        nInt := nIdx;
+        Break; //样本均匀
+      end;
+
+      Break; //命中
+    end;
+  end;
+  
   with FWQSimplesVMAS[nInt] do
   begin
     nLen := Length(FData);
@@ -739,6 +884,24 @@ begin
     for nIdx:=Low(FData) to High(FData) do
       nData[nIdx] := FData[nIdx];
     //数据合并
+
+    if nIsVIP and (nSimple = '') then //VIP使用固定样本
+    try
+      FSyncLock.Enter;
+      nIdx := Length(FSQLItems);
+      SetLength(FSQLItems, nIdx+1);
+
+      with FSQLItems[nIdx] do
+      begin
+        FSQL := 'update %s set t_simple=''%s'',t_struck=''%s'' where t_truck=''%s''';
+        FSQL := Format(FSQL, [sTable_Truck, FXH, FTruck, nOnline]);
+
+        FType := stVIPSimple;
+        FValid := True;
+      end;
+    finally
+      FSyncLock.Leave;
+    end;
   end;
 
   Result := True;
@@ -748,12 +911,13 @@ end;
 //Date: 2018-08-11
 //Parm: 样本车牌;sds数据
 //Desc: 填充样本数据到nData中
-function TTruckManager.FillSDSSimple(var nTruck: string;
+function TTruckManager.FillSDSSimple(const nLineNo: Integer; var nTruck: string;
   var nData: TWQDataList): Boolean;
-var nIdx,nInt,nLen: Integer;
+var nSimple,nOnline: string;
+    nIdx,nInt,nLen,nLoop: Integer;
+    nIsVIP: Boolean;
 begin
   Result := False;
-  nInt := -1;
   nLen := Length(FWQSimplesSDS);
 
   if nLen < 1 then
@@ -762,19 +926,70 @@ begin
     Exit;
   end;
 
-  while True do
-  begin
-    nInt := Random(nLen);
-    if nInt >= nLen then Continue;
-
-    for nIdx:=Low(FWQSimplesSDS) to High(FWQSimplesSDS) do
-    if FWQSimplesSDS[nInt].FUsed - FWQSimplesSDS[nIdx].FUsed >= 2 then
+  FSyncLock.Enter;
+  try
+    nOnline := '';
+    for nIdx:=Low(FTrucks) to High(FTrucks) do
+    with FTrucks[nIdx] do
+    if FEnable and (FType = ctWQ) and (FLine = nLineNo) then
     begin
-      nInt := nIdx;
-      Break; //样本均匀
+      nOnline := FTruck; //当前线上车辆
+      Break;
     end;
 
-    Break; //命中
+    nSimple := '';
+    nIdx := FindVIPTruck(nOnline);
+    nIsVIP := nIdx >= 0;
+
+    if nIsVIP then
+      nSimple := FVIPTrucks[nIdx].FSimple;
+    //车辆指定样本
+
+    if nSimple <> '' then
+      WriteLog(Format('[ %d ]线车辆[ %s ]指定样本[ %s ].', [nLineNo, nOnline, nSimple]));
+    //xxxxx
+  finally
+    FSyncLock.Leave;
+  end;
+
+  nInt := -1;
+  if nSimple <> '' then
+  begin
+    for nIdx:=Low(FWQSimplesSDS) to High(FWQSimplesSDS) do
+    if FWQSimplesSDS[nIdx].FXH = nSimple then
+    begin
+      nInt := nIdx; //指定序号优先选中
+      Break;
+    end;
+  end;
+
+  if nInt < 0 then
+  begin
+    nLoop := 0;
+
+    while True do
+    begin
+      Inc(nLoop);
+      if nLoop > 1000 then
+      begin
+        WriteLog('无法选中有效的SDS样本,VIP样本数量不足.');
+        Exit;
+      end;
+
+      nInt := Random(nLen);
+      if nInt >= nLen then Continue;
+      if FWQSimplesSDS[nInt].FIsBlack then Continue;
+
+      for nIdx:=Low(FWQSimplesSDS) to High(FWQSimplesSDS) do
+      if (not FWQSimplesSDS[nIdx].FIsBlack) and
+         (FWQSimplesSDS[nInt].FUsed - FWQSimplesSDS[nIdx].FUsed >= 2) then
+      begin
+        nInt := nIdx;
+        Break; //样本均匀
+      end;
+
+      Break; //命中
+    end;
   end;
 
   with FWQSimplesSDS[nInt] do
@@ -800,6 +1015,24 @@ begin
     for nIdx:=Low(FData) to High(FData) do
       nData[nIdx] := FData[nIdx];
     //数据合并
+
+    if nIsVIP and (nSimple = '') then //VIP使用固定样本
+    try
+      FSyncLock.Enter;
+      nIdx := Length(FSQLItems);
+      SetLength(FSQLItems, nIdx+1);
+
+      with FSQLItems[nIdx] do
+      begin
+        FSQL := 'update %s set t_simple=''%s'',t_struck=''%s'' where t_truck=''%s''';
+        FSQL := Format(FSQL, [sTable_Truck, FXH, FTruck, nOnline]);
+
+        FType := stVIPSimple;
+        FValid := True;
+      end;
+    finally
+      FSyncLock.Leave;
+    end;
   end;
 
   Result := True;

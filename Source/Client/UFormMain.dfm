@@ -294,6 +294,22 @@ object fFormClient: TfFormClient
             Caption = #25805#20316#26102#38388
             DataBinding.FieldName = 't_time'
           end
+          object cxView3Column3: TcxGridDBColumn
+            Caption = #31867#22411
+            DataBinding.FieldName = 't_allow'
+            PropertiesClassName = 'TcxImageComboBoxProperties'
+            Properties.Alignment.Horz = taLeftJustify
+            Properties.Items = <
+              item
+                Description = '0'#12289#40657#21517#21333
+                ImageIndex = 0
+                Value = 0
+              end
+              item
+                Description = '1'#12289#27491#24120#26679#26412
+                Value = 1
+              end>
+          end
         end
         object cxLevel3: TcxGridLevel
           GridView = cxView3
@@ -468,6 +484,14 @@ object fFormClient: TfFormClient
           object cxView2Column2: TcxGridDBColumn
             Caption = #36710#29260#21495
             DataBinding.FieldName = 't_truck'
+          end
+          object cxView2Column6: TcxGridDBColumn
+            Caption = #26679#26412#24207#21495
+            DataBinding.FieldName = 't_simple'
+          end
+          object cxView2Column7: TcxGridDBColumn
+            Caption = #26679#26412#36710#29260
+            DataBinding.FieldName = 't_struck'
           end
           object cxView2Column4: TcxGridDBColumn
             Caption = #25805#20316#20154
