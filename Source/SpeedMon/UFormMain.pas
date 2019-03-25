@@ -71,6 +71,9 @@ type
     EditRangeD: TLabeledEdit;
     Label3: TLabel;
     EditMaxRangeD: TLabeledEdit;
+    EditRange1: TLabeledEdit;
+    Label4: TLabel;
+    EditMaxRange1: TLabeledEdit;
     procedure Timer1Timer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -227,6 +230,18 @@ begin
         if nStr <> '' then nStatus := msIdle;
       end else
 
+      if Pos('1K8', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := ms1K8;
+      end else
+
+      if Pos('FIRSTPACK', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := ms1Pack;
+      end else
+
       //------------------------------------------------------------------------
       if Pos('VSTART', nStr) = 1 then
       begin
@@ -345,8 +360,11 @@ begin
       EditMaxRange2.Text := ReadString('Config', 'DataMaxRange2', '2200-2800');
       EditRange3.Text := ReadString('Config', 'DataRange3', '3400-3600');
       EditMaxRange3.Text := ReadString('Config', 'DataMaxRange3', '3200-3800');
+
       EditRangeD.Text := ReadString('Config', 'DataRangeD', '800-900');
       EditMaxRangeD.Text := ReadString('Config', 'DataMaxRangeD', '0-1300');
+      EditRange1.Text := ReadString('Config', 'DataRange1', '1700-1900');
+      EditMaxRange1.Text := ReadString('Config', 'DataMaxRange1', '1300-2500');
 
       FLineNo := ReadString('Config', 'LineNo', '0');
       FRemoteHost := ReadString('Config', 'RemoteHost', '127.0.0.1');
@@ -378,6 +396,8 @@ begin
       nIni.WriteString('Config', 'DataMaxRange3', EditMaxRange3.Text);
       nIni.WriteString('Config', 'DataRangeD', EditRangeD.Text);
       nIni.WriteString('Config', 'DataMaxRangeD', EditMaxRangeD.Text);
+      nIni.WriteString('Config', 'DataRange1', EditRange1.Text);
+      nIni.WriteString('Config', 'DataMaxRange1', EditMaxRange1.Text);
 
       nReg := TRegistry.Create;
       nReg.RootKey := HKEY_CURRENT_USER;
@@ -960,6 +980,11 @@ begin
     if msIdle in FNowStatus then
     begin
       SplitRangeValue(EditRangeD.Text, EditMaxRangeD.Text);
+    end else
+
+    if ms1K8 in FNowStatus then
+    begin
+      SplitRangeValue(EditRange1.Text, EditMaxRange1.Text);
     end;
   end;
 

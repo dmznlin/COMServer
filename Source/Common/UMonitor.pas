@@ -463,6 +463,10 @@ begin
   if Pos(gStatusFlags[nIdx].FKeyWord, nStr) > 0 then
   begin
     FTmpStatus := FTmpStatus + [gStatusFlags[nIdx].FStatus];
+    if FTmpStatus <> FStatus then
+      WriteLog('工位标记: ' + nStr);
+    //xxxxx
+
     if (FTmpStatus <> FStatus) or
        (gStatusFlags[nIdx].FStatus in [msDRun_2K5, msDRun_DS]) then
     begin

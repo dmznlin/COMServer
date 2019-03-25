@@ -514,7 +514,7 @@ begin
         if not IsNumber(nStr, False) then Continue;
         nInt := StrToInt(nStr);
         
-        if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msDError)) then
+        if (nInt >= Ord(msNoRun)) and (nInt <= Ord(msIdle)) then
         begin
           nStatus := TMonStatusItem(nInt);
           if not (nStatus in [msDRun_2K5, msDRun_DS]) then
@@ -524,17 +524,39 @@ begin
             WriteLog(nStr);
           end;
 
-          if nStatus in [ms2K5, ms3K5] then Exit;
+          if nStatus in [ms2K5, ms3K5, ms1K8] then Exit;
           //无需处理状态
-          FCOMPorts[nIdx].FGWStatus := nStatus;
-                                            
-          if (nStatus = msVStart) or (nStatus = msDStart) then //vmas,sds开始
+
+          if (nStatus = ms1Pack) and (not (nStatus in FGWStatus)) then //允许发送第一包数据
+          begin
+            FGWStatus := FGWStatus + [ms1Pack];
+            //首包状态
+            
+            nStr := Format('[ %d线 ]开始发送首包数据.', [
+                           FCOMPorts[nIdx].FLineNo]);
+            WriteLog(nStr);
+          end else
+
+          if ((nStatus = msVRun) or (nStatus = msDRun_2K5) or
+             (nStatus = msDRun_DS)) and (not (nStatus in FGWStatus)) then
+          begin
+            FGWStatus := FGWStatus - [ms1Pack] + [nStatus];
+            //数据开始,停止首包
+            FGWDataIndexTime := 0;
+          end;
+
+          //--------------------------------------------------------------------
+          if ((nStatus = msVStart) or (nStatus = msDStart)) and
+             (not (nStatus in FGWStatus)) then //vmas,sds开始
           with FCOMPorts[nIdx] do
           begin
             FGWDataIndex := 0;
             FGWDataIndexSDS := 0;
             FGWDataIndexTime := 0;
             //重置索引
+
+            FGWStatus := [nStatus];
+            //状态跟踪
             
             if GetTickCount - FGWDataLast > 5 * 60 * 1000 then //5分钟重载样本
             begin
@@ -564,6 +586,9 @@ begin
             FGWDataTruck := '';
             SetLength(FCOMPorts[nIdx].FGWDataList, 0);
             //清理样本
+
+            FGWStatus := [];
+            //状态跟踪
           end else
 
           if (nStatus = msVError) or (nStatus = msDError) then //vmas,sds错误
@@ -571,6 +596,9 @@ begin
             FGWDataIndex := 0;
             FGWDataIndexTime := 0;
             //重置索引
+
+            FGWStatus := [];
+            //状态跟踪
           end else
 
           if (nStatus = msDRun_2K5) or (nStatus = msDRun_DS) then //双怠速取样时序
@@ -634,12 +662,11 @@ begin
 
       FWQStatus := wsTL;
       FWQStatusTime := 0;
-
       FGWDataIndex := 0;
       FGWDataIndexSDS := 0;
       FGWDataIndexTime := 0;
       
-      FGWStatus := msNoRun;
+      FGWStatus := [];
       FGWDataLast := 0;
       SetLength(FGWDataList, 0);
                        
@@ -1404,7 +1431,8 @@ begin
       {$IFDEF WQUseSimple}
       FSyncLock.Enter;
       try
-        if ((nCheckType = CTvmas) and (FGWStatus = msVRun)) or  //vmas
+        if (ms1Pack in FGWStatus) or //发送第一包
+           ((nCheckType = CTvmas) and (msVRun in FGWStatus)) or  //vmas
            ((nCheckType = CTsds) and (FGWDataIndexSDS > 0)) then //双怠速
         begin
           if FGWDataIndexTime = 0 then
@@ -1787,7 +1815,7 @@ begin
     nInt := High(FGWDataList);
     if FGWDataIndex > nInt then Exit; //no data
 
-    if FGWDataIndexTime = 0 then
+    if (ms1Pack in FGWStatus) or (FGWDataIndexTime = 0) then
       FGWDataIndexTime := Time();
     //first
 
