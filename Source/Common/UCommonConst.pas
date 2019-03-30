@@ -31,10 +31,11 @@ type
   TWQCheckType = (CTvmas, CTsds, CTlugdown, CTzyjs, CTUnknown);
   //尾气检测方式: vams,双怠速,加载减速,自由加速,不支持
 
-  TMonStatusItem = (msNoRun, ms2K5, ms3K5, msVStart, msVRun, msVEnd, msVError,
+  TMonStatusItem = (msNoRun, msReset, ms2K5, ms3K5,
+                    msVStart, msVRun, msVEnd, msVError,
                     msDStart, msDRun_2K5, msDRun_DS, msDEnd, msDError,
                     ms1K8, ms1Pack, msIdle);
-  //尾气检测状态: 未运行;2K5模式,3K5模式;
+  //尾气检测状态: 未运行;业务重置;2K5模式,3K5模式;
   //        VMAS: vmas开始;vmas运行中;vmas结束;vmas异常
   //      双怠速: 开始,2K5取样,怠速取样,怠速结束,结束,异常
   //    车辆状态: 1K8模式;发送首包;低转速(怠速)
@@ -181,7 +182,7 @@ implementation
 
 const
   cStatusName: array[msNoRun..msIdle] of string = (
-    '未运行', '2K5模式', '3K5模式',
+    '未运行', '业务重置', '2K5模式', '3K5模式',
     'vmas开始', 'vmas运行中', 'vmas结束', 'vmas异常',
     '双怠速开始', '双怠速-2K5', '双怠速-怠速', '双怠速结束', '双怠速异常',
     '1K8模式', '发送首包数据', '低速(怠速)');

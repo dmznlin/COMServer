@@ -1,5 +1,5 @@
 object fFormMain: TfFormMain
-  Left = 682
+  Left = 683
   Top = 359
   Width = 875
   Height = 653
@@ -19,23 +19,23 @@ object fFormMain: TfFormMain
     Left = 165
     Top = 80
     Width = 2
-    Height = 527
+    Height = 515
     Align = alLeft
     Shape = bsSpacer
   end
   object MemoLog: TMemo
     Left = 167
     Top = 80
-    Width = 700
-    Height = 527
+    Width = 692
+    Height = 515
     Align = alClient
     ScrollBars = ssBoth
     TabOrder = 0
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 607
-    Width = 867
+    Top = 595
+    Width = 859
     Height = 19
     Panels = <>
   end
@@ -43,7 +43,7 @@ object fFormMain: TfFormMain
     Left = 0
     Top = 80
     Width = 165
-    Height = 527
+    Height = 515
     Align = alLeft
     ActiveGroupIndex = 0
     TabOrder = 2
@@ -79,7 +79,7 @@ object fFormMain: TfFormMain
     object dxNavGroup1Control: TdxNavBarGroupControl
       Left = 0
       Top = 19
-      Width = 165
+      Width = 148
       Height = 85
       Caption = 'dxNavGroup1Control'
       TabOrder = 2
@@ -145,7 +145,7 @@ object fFormMain: TfFormMain
     object dxNavGroup2Control: TdxNavBarGroupControl
       Left = 0
       Top = 123
-      Width = 165
+      Width = 148
       Height = 220
       TabOrder = 1
       UseStyle = True
@@ -225,7 +225,7 @@ object fFormMain: TfFormMain
     object dxNavGroup3Control: TdxNavBarGroupControl
       Left = 0
       Top = 362
-      Width = 165
+      Width = 148
       Height = 165
       TabOrder = 3
       UseStyle = True
@@ -251,7 +251,7 @@ object fFormMain: TfFormMain
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 867
+    Width = 859
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -261,7 +261,7 @@ object fFormMain: TfFormMain
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 646
+      Width = 638
       Height = 80
       Align = alClient
       AutoSize = True
@@ -934,7 +934,7 @@ object fFormMain: TfFormMain
       Stretch = True
     end
     object Image2: TImage
-      Left = 646
+      Left = 638
       Top = 0
       Width = 221
       Height = 80

@@ -115,7 +115,7 @@ implementation
 {$R *.dfm}
 uses
   IniFiles, Registry, ULibFun, UMgrCOMM, ZnMD5, USysLoger, USysDB,
-  UFormInputbox;
+  UFormInputbox, UObjectList;
 
 const
   cChar_Head       = Char($01);                       //协议头
@@ -180,6 +180,9 @@ begin
 
   FSyncLock := TCriticalSection.Create;
   //sync lock
+  gObjectPoolManager := TObjectPoolManager.Create;
+  gObjectPoolManager.RegClass(TStringList);
+  //object buffer
 
   CheckLoged.Checked := True;
   {$IFNDEF DEBUG}  
@@ -493,12 +496,15 @@ var nStr: string;
     nList: TStrings;
     nIdx,nInt: Integer;
     nStatus: TMonStatusItem;
+    nPoolItem: PObjectPoolItem;
 begin
-  nList := TStringList.Create;
+  nPoolItem := nil;
   try
+    nPoolItem := gObjectPoolManager.LockObject(TStringList);
+    nList := nPoolItem.FObject as TStrings;
     nList.Text := DecodeBase64(nContext.Connection.IOHandler.ReadLn());
-    nStr := Trim(nList.Values['LineNo']);
-    
+
+    nStr := Trim(nList.Values['LineNo']);    
     if not IsNumber(nStr, False) then Exit;
     nInt := StrToInt(nStr);
 
@@ -527,7 +533,7 @@ begin
           if nStatus in [ms2K5, ms3K5, ms1K8] then Exit;
           //无需处理状态
 
-          if (nStatus = ms1Pack) and (not (nStatus in FGWStatus)) then //允许发送第一包数据
+          if (nStatus = ms1Pack) and (not (ms1Pack in FGWStatus)) then //允许发送第一包数据
           begin
             FGWStatus := FGWStatus + [ms1Pack];
             //首包状态
@@ -543,11 +549,26 @@ begin
             FGWStatus := FGWStatus - [ms1Pack] + [nStatus];
             //数据开始,停止首包
             FGWDataIndexTime := 0;
+          end else
+
+          if nStatus = msReset then //业务重置
+          begin
+            FGWDataIndex := 0;
+            FGWDataIndexSDS := 0;
+            FGWDataIndexTime := 0;
+            FCOMPorts[nIdx].FGWDataLast := 0;
+
+            FGWDataTruck := '';
+            SetLength(FCOMPorts[nIdx].FGWDataList, 0);
+            //清理样本
+
+            FGWStatus := [];
+            //状态跟踪
           end;
 
           //--------------------------------------------------------------------
           if ((nStatus = msVStart) or (nStatus = msDStart)) and
-             (not (nStatus in FGWStatus)) then //vmas,sds开始
+              (not (nStatus in FGWStatus)) then //vmas,sds开始
           with FCOMPorts[nIdx] do
           begin
             FGWDataIndex := 0;
@@ -616,7 +637,7 @@ begin
       FSyncLock.Leave;
     end;
   finally
-    nList.Free;
+    gObjectPoolManager.ReleaseObject(nPoolItem);
   end;
 end;
 

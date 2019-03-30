@@ -176,13 +176,13 @@ begin
     FKeyWords[nIdx] := UpperCase(FKeyWords[nIdx]);
   gControlKeyword := FKeyWords;
 
-  if not Assigned(FMonitor) then
-    FMonitor := TMonThread.Create(Self);
-  FMonitor.Wakeup;
-
   if not Assigned(FRemoteSync) then
     FRemoteSync := TMonRemoteSync.Create(Self);
   FRemoteSync.Wakeup;
+
+  if not Assigned(FMonitor) then
+    FMonitor := TMonThread.Create(Self);
+  FMonitor.Wakeup;
 end;
 
 procedure TMonManager.StopMon;
@@ -248,7 +248,11 @@ begin
 end;
 
 procedure TMonThread.Execute;
+var nHasStart: Boolean;
 begin
+  nHasStart := False;
+  //init
+
   while not Terminated do
   try
     FWaiter.EnterWait;
@@ -266,6 +270,29 @@ begin
     if (FWindowID = 0) or (FProcessID = 0) then
          FWaiter.Interval := cInterval_Long
     else FWaiter.Interval := cInterval_Short;
+
+    if FTmpStatus <> [] then
+    begin
+      if nHasStart and ((
+         msVEnd in FTmpStatus) or (msDEnd in FTmpStatus)) then
+        nHasStart := False;
+      //vmas or sds end
+
+      if (not nHasStart) and (
+         (msVStart in FTmpStatus) or (msDStart in FTmpStatus)) then
+        nHasStart := True;
+      //业务开始
+    end;
+
+    if nHasStart and ((FWindowID = 0) or (FProcessID = 0) or
+       (msReset in FTmpStatus)) then //窗口关闭
+    with FOwner do
+    begin
+      nHasStart := False;
+      FListA.Values['Status'] := IntToStr(Ord(msReset));
+      FListA.Values['LineNo'] := FLineNo;
+      FRemoteSync.SyncData(EncodeBase64(FListA.Text));
+    end;
   except
     on E:Exception do
     begin
@@ -466,6 +493,9 @@ begin
     if FTmpStatus <> FStatus then
       WriteLog('工位标记: ' + nStr);
     //xxxxx
+
+    if gStatusFlags[nIdx].FStatus in [msReset] then Continue;
+    //无需处理状态
 
     if (FTmpStatus <> FStatus) or
        (gStatusFlags[nIdx].FStatus in [msDRun_2K5, msDRun_DS]) then

@@ -224,6 +224,12 @@ begin
         if nStr <> '' then nStatus := ms3K5;
       end else
 
+      if Pos('RESET', nStr) = 1 then
+      begin
+        nStr := Trim(nIni.ReadString(cSection, nStr, ''));
+        if nStr <> '' then nStatus := msReset;
+      end else
+
       if Pos('IDLE', nStr) = 1 then
       begin
         nStr := Trim(nIni.ReadString(cSection, nStr, ''));
