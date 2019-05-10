@@ -74,6 +74,7 @@ type
     EditRange1: TLabeledEdit;
     Label4: TLabel;
     EditMaxRange1: TLabeledEdit;
+    CheckKeyWords: TCheckBox;
     procedure Timer1Timer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -84,7 +85,7 @@ type
     procedure CheckSrvClick(Sender: TObject);
     procedure Timer2Timer(Sender: TObject);
     procedure CheckShowLogClick(Sender: TObject);
-    procedure Image1Click(Sender: TObject);
+    procedure CheckKeyWordsClick(Sender: TObject);
   private
     { Private declarations }
     FHotKeyHide: Cardinal;
@@ -702,6 +703,11 @@ begin
   gSysLoger.LogSync := CheckShowLog.Checked;
 end;
 
+procedure TfFormMain.CheckKeyWordsClick(Sender: TObject);
+begin
+  gShowKeyWords := CheckKeyWords.Checked;
+end;
+
 //------------------------------------------------------------------------------
 //Date: 2018-01-13
 //Parm: 串口对象
@@ -1015,11 +1021,6 @@ begin
   begin
     WriteLog(Format('转速: %d -> %d', [nVal, Result]));
   end;
-end;
-
-procedure TfFormMain.Image1Click(Sender: TObject);
-begin
-  MemoLog.Lines.Add(IntToStr(RandomRange(100)))
 end;
 
 end.

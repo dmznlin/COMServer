@@ -109,6 +109,7 @@ type
   end;
 
 var
+  gShowKeyWords: Boolean = False;
   gStatusFlags: TStatusFlags;
   gMonManager: TMonManager = nil;
   //全局使用
@@ -470,6 +471,10 @@ begin
     Exit;
   end;
 
+  if gShowKeyWords then
+    WriteLog('工位标记: ' + nStr);
+  //xxxxx
+
   if Pos('2500', nStr) > 0 then
   begin
     FTmpStatus := FTmpStatus + [ms2K5];
@@ -490,7 +495,7 @@ begin
   if Pos(gStatusFlags[nIdx].FKeyWord, nStr) > 0 then
   begin
     FTmpStatus := FTmpStatus + [gStatusFlags[nIdx].FStatus];
-    if FTmpStatus <> FStatus then
+    if (FTmpStatus <> FStatus) and (not gShowKeyWords) then
       WriteLog('工位标记: ' + nStr);
     //xxxxx
 

@@ -35,7 +35,7 @@ object fFormMain: TfFormMain
     Top = 80
     Width = 671
     Height = 396
-    ActivePage = Sheet2
+    ActivePage = Sheet1
     Align = alClient
     MultiLine = True
     Style = tsFlatButtons
@@ -82,7 +82,7 @@ object fFormMain: TfFormMain
           TabOrder = 1
         end
         object CheckShowLog: TCheckBox
-          Left = 478
+          Left = 385
           Top = 2
           Width = 80
           Height = 17
@@ -92,6 +92,16 @@ object fFormMain: TfFormMain
           State = cbChecked
           TabOrder = 2
           OnClick = CheckShowLogClick
+        end
+        object CheckKeyWords: TCheckBox
+          Left = 465
+          Top = 2
+          Width = 100
+          Height = 17
+          Anchors = [akTop, akRight]
+          Caption = #26174#31034#26631#35760#26126#32454
+          TabOrder = 3
+          OnClick = CheckKeyWordsClick
         end
       end
     end
@@ -1040,7 +1050,6 @@ object fFormMain: TfFormMain
         FEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFEFE
         808F}
       Stretch = True
-      OnClick = Image1Click
     end
     object Image2: TImage
       Left = 450
