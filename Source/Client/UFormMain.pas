@@ -215,8 +215,8 @@ end;
 procedure TfFormClient.RefreshTruckList;
 var nStr: string;
 begin
-  nStr := 'Select id,car_num,car_xh,goline from %s ' +
-          'Where car_num<>'''' Order By id';
+  nStr := 'Select id,hphm,clpp,jcxdh from %s ' +
+          'Where hphm<>'''' Order By id';
   nStr := Format(nStr, [sTable_WQTruck]);
 
   UniQuery1.Close;

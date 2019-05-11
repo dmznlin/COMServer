@@ -91,10 +91,10 @@ ResourceString
   {*数据表*}
   sTable_Truck        = 'aa_td_runo';                //车辆管理
   sTable_Simple       = 'aa_td_run0';                //样本数据
-  sTable_WQTruck      = 'aa_td_run';                 //尾气待检
+  sTable_WQTruck      = 'hb_queueing';               //尾气待检
   sTable_DDTruck      = 'aa_td_run';                 //大灯待检
-  sTable_VMas         = 'z_data_log_f';              //vams样本
-  sTable_SDS          = 'tieing';                    //双怠速样本
+  sTable_VMas         = 'hb_gc_vmas';                //vams样本
+  sTable_SDS          = 'hb_gc_idle';                //双怠速样本
 
 var
   gLocalName: string = '';

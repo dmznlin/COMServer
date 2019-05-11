@@ -33,7 +33,7 @@ object fFormClient: TfFormClient
     Top = 80
     Width = 688
     Height = 419
-    ActivePage = Sheet4
+    ActivePage = Sheet1
     Align = alClient
     TabOrder = 1
     OnPageChanging = wPagePageChanging
@@ -418,15 +418,15 @@ object fFormClient: TfFormClient
           end
           object cxView1Column2: TcxGridDBColumn
             Caption = #36710#29260#21495
-            DataBinding.FieldName = 'Car_Num'
+            DataBinding.FieldName = 'hphm'
           end
           object cxView1Column3: TcxGridDBColumn
             Caption = #26816#27979#32447
-            DataBinding.FieldName = 'GoLine'
+            DataBinding.FieldName = 'jcxdh'
           end
           object cxView1Column4: TcxGridDBColumn
             Caption = #22411#21495
-            DataBinding.FieldName = 'Car_XH'
+            DataBinding.FieldName = 'clpp'
           end
         end
         object cxLevel1: TcxGridLevel

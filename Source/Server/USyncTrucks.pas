@@ -400,8 +400,8 @@ begin
          FSQLQuery.Connection := FDBConnWQ
     else FSQLQuery.Connection := FDBConnDD; //ÇÐ»»Á´Â·
 
-    nStr := 'select csgk_hc,csgk_co,csgk_co2,csgk_no,csgkfxy_o2 from %s ' +
-            'where jcsxh=''%s'' order by id asc';
+    nStr := 'select chc,cco,cco2,cno,co2 from %s ' +
+            'where jylsh=''%s'' order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_VMas, FXH]);
     FSQLQuery.Open;
 
@@ -417,11 +417,11 @@ begin
       while not Eof do
       with FData[nInt] do
       begin
-        Word2Item(FCO2, Trunc(FieldByName('csgk_co2').AsFloat * 100));
-        Word2Item(FCO,  Trunc(FieldByName('csgk_co').AsFloat * 100));
-        Word2Item(FHC,  Trunc(FieldByName('csgk_hc').AsFloat));
-        Word2Item(FNO,  Trunc(FieldByName('csgk_no').AsFloat));
-        Word2Item(FO2,  Trunc(FieldByName('csgkfxy_o2').AsFloat * 100));
+        Word2Item(FCO2, Trunc(FieldByName('cco2').AsFloat * 100));
+        Word2Item(FCO,  Trunc(FieldByName('cco').AsFloat * 100));
+        Word2Item(FHC,  Trunc(FieldByName('chc').AsFloat));
+        Word2Item(FNO,  Trunc(FieldByName('cno').AsFloat));
+        Word2Item(FO2,  Trunc(FieldByName('co2').AsFloat * 100));
 
         Inc(nInt);
         Next;
@@ -442,7 +442,7 @@ begin
     else FSQLQuery.Connection := FDBConnDD; //ÇÐ»»Á´Â·
 
     nStr := 'select hc,co,co2,o2 from %s ' +
-            'where jcbgbh=''%s'' order by id asc';
+            'where jylsh=''%s'' order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_SDS, FXH]);
     FSQLQuery.Open;
 
@@ -598,7 +598,7 @@ begin
     FSQLQuery.Close;
     FSQLQuery.Connection := FDBConnWQ; //ÇÐ»»Á´Â·
 
-    nStr := 'select car_num,goline,car_item from %s order by id asc';
+    nStr := 'select hphm,jcxdh,itemcode from %s order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_WQTruck]);
     FSQLQuery.Open; //Î²Æø´ý¼ì³µÁ¾
 
