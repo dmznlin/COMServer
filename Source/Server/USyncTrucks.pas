@@ -400,7 +400,7 @@ begin
          FSQLQuery.Connection := FDBConnWQ
     else FSQLQuery.Connection := FDBConnDD; //ÇÐ»»Á´Â·
 
-    nStr := 'select chc,cco,cco2,cno,co2 from %s ' +
+    nStr := 'select rhc,rco,co2,rno,o2fxy from %s ' +
             'where jylsh=''%s'' order by id asc';
     FSQLQuery.SQL.Text := Format(nStr, [sTable_VMas, FXH]);
     FSQLQuery.Open;
@@ -417,11 +417,11 @@ begin
       while not Eof do
       with FData[nInt] do
       begin
-        Word2Item(FCO2, Trunc(FieldByName('cco2').AsFloat * 100));
-        Word2Item(FCO,  Trunc(FieldByName('cco').AsFloat * 100));
-        Word2Item(FHC,  Trunc(FieldByName('chc').AsFloat));
-        Word2Item(FNO,  Trunc(FieldByName('cno').AsFloat));
-        Word2Item(FO2,  Trunc(FieldByName('co2').AsFloat * 100));
+        Word2Item(FCO2, Trunc(FieldByName('co2').AsFloat * 100));
+        Word2Item(FCO,  Trunc(FieldByName('rco').AsFloat * 100));
+        Word2Item(FHC,  Trunc(FieldByName('rhc').AsFloat));
+        Word2Item(FNO,  Trunc(FieldByName('rno').AsFloat));
+        Word2Item(FO2,  Trunc(FieldByName('o2fxy').AsFloat * 100));
 
         Inc(nInt);
         Next;
