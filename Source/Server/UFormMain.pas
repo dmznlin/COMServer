@@ -49,6 +49,7 @@ type
     Timer2: TTimer;
     CheckYG: TcxCheckBox;
     BtnOnline: TcxLabel;
+    CheckShowWQ: TcxCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -91,6 +92,7 @@ type
     procedure ParseProtocol(const nItem,nGroup: Integer);
     procedure ParseProtocol_6A(const nItem,nGroup: Integer);
     procedure ParseWQProtocol(const nItem,nGroup: Integer);
+    procedure ParseWQProtocol_5160(const nItem,nGroup: Integer);
     procedure OnCOMData(Sender: TObject; Count: Integer);
     //数据处理
     function AdjustProtocol(const nData: PDataItem): Boolean;
@@ -102,6 +104,8 @@ type
     function AdjustWQProtocol(const nItem,nGroup: Integer;
       const nData: PWQData; const nInBlack: Boolean): Boolean;
     {$ENDIF}
+    function AdjustWQProtocol_5160(const nItem,nGroup,nHeadType: Integer;
+      const nData: Pointer; const nInBlack: Boolean): Boolean;
     //校正数据
   public
     { Public declarations }
@@ -128,6 +132,14 @@ const
   cChar_WQ_Head    = Char($06)+Char($60)+Char($1B);   //协议头
   cChar_WQ_Head_L  = Length(cChar_WQ_Head);           //头大小
   cSize_WQ_Data    = SizeOf(TWQData);                 //数据大小
+         
+  cChar_WQ_Head_A3 = Char($06)+Char($A3)+Char($17);   //A3协议头
+  cChar_WQ_Head_A3_L  = Length(cChar_WQ_Head_A3);     //A3头大小
+  cSize_WQ_Data_A3 = SizeOf(TWQData5160_A3);          //数据大小
+
+  cChar_WQ_Head_A8 = Char($06)+Char($A8)+Char($1B);   //A8协议头
+  cChar_WQ_Head_A8_L  = Length(cChar_WQ_Head_A8);     //A8头大小
+  cSize_WQ_Data_A8 = SizeOf(TWQData5160_A8);          //数据大小
 
   cAdj_KeepLong    = 6;                              //数据保持最大次数
   cAdj_Interval    = 1 * 1000 * 60;                  //校正数据有效期
@@ -155,6 +167,14 @@ begin
   case DT of
    NHD6108 : Result := 'NHD-6108';
    MQD6A   : Result := 'MQD-6A';
+  end;
+end;
+
+function WQType2Str(const WQ: TWQType): string;
+begin
+  case WQ of
+   MQW50A : Result := 'MQW50A';
+   GB5160 : Result := 'GB5160';
   end;
 end;
 
@@ -420,6 +440,10 @@ begin
     Add('|--- 仪器: ' + DDType2Str(FDDType));
     //xxxxx
 
+    if FItemType = ctWQ then
+    Add('|--- 仪器: ' + WQType2Str(FWQType));
+    //xxxxx
+
     Add('|--- 线号: ' + IntToStr(FLineNo));
     Add('|--- 端口: ' + FPortName);
     Add('|--- 速率: ' + BaudRateToStr(FBaudRate));
@@ -669,6 +693,11 @@ begin
       if CompareText(nStr, 'MQD-6A') = 0 then
            FDDType := MQD6A
       else FDDType := NHD6108;
+
+      nStr := ReadString(nList[nIdx], 'WQModel', 'MQW50A');
+      if CompareText(nStr, 'MQW50A') = 0 then
+           FWQType := MQW50A
+      else FWQType := GB5160;//尾气仪类型
 
       FPortName  := ReadString(nList[nIdx], 'PortName', '');
       FBaudRate  := StrToBaudRate(ReadString(nList[nIdx], 'BaudRate', '9600'));
@@ -1334,6 +1363,7 @@ end;
 //Date: 2016-10-08
 //Parm: 源端口;转发端口
 //Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+//      支持设备: 明泉MQW-50A
 procedure TfFormMain.ParseWQProtocol(const nItem, nGroup: Integer);
 var nS,nE,nPos,nIdx: Integer;
     nData: TWQData;
@@ -1343,6 +1373,12 @@ var nS,nE,nPos,nIdx: Integer;
 begin
   with FCOMPorts[nItem] do
   begin
+    if FWQType = GB5160 then
+    begin
+      ParseWQProtocol_5160(nItem, nGroup);
+      Exit;
+    end; //GasBoard5160协议解析
+
     nE := Length(FData);
     if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
     begin
@@ -1500,6 +1536,127 @@ begin
         FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
       end;
       {$ENDIF}
+    end;
+
+    RedirectData(nItem, nGroup, FData);
+    FData := '';
+    //发送数据
+  end;
+end;
+
+//Date: 2020-04-27
+//Parm: 源端口;转发端口
+//Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+//      支持设备: 湖北锐意5160
+procedure TfFormMain.ParseWQProtocol_5160(const nItem, nGroup: Integer);
+var nS,nE,nPos,nIdx: Integer;
+    nInBlack: Boolean;
+    nHeadType: Integer;
+
+    nData_A3: TWQData5160_A3;
+    nData_A8: TWQData5160_A8;
+    nBuf_A3: array[0..cSize_WQ_Data_A3-1] of Char;
+    nBuf_A8: array[0..cSize_WQ_Data_A8-1] of Char;
+begin
+  with FCOMPorts[nItem] do
+  begin
+    nHeadType := -1;
+    //默认无法区分协议头
+    nE := Length(FData);
+
+    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      nE := 0;
+    end; //超时数据直接转发
+
+    if nE > cSize_WQ_Data_A3 then
+    begin
+      while nE > 0 do
+      begin
+        nPos := nE;
+        Dec(nE);
+
+        if Copy(FData, nPos, cChar_WQ_Head_A3_L) = cChar_WQ_Head_A3 then Break;
+        //A3 last header
+        if Copy(FData, nPos, cChar_WQ_Head_A8_L) = cChar_WQ_Head_A8 then Break;
+        //A8 last header
+      end;
+
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
+        System.Delete(FData, 1, nE);
+      end;
+    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
+
+    //--------------------------------------------------------------------------
+    if ((Pos(cChar_WQ_Head_A3, FBuffer) < 1) and
+        (Pos(cChar_WQ_Head_A8, FBuffer) < 1)) and (FData = '') then
+    begin
+      RedirectData(nItem, nGroup, FBuffer);
+      //非协议数据直接转发
+      Exit;
+    end; 
+
+    FDataLast := GetTickCount;
+    FData :=  FData + FBuffer;
+    //保存数据待分析
+
+    nS := Pos(cChar_WQ_Head_A3, FData);
+    if nS > 0 then
+    begin
+      nHeadType := 3;
+      nPos := Length(FData);
+      if nPos - nS + 1 < cSize_WQ_Data_A3 then Exit; //未找到完整协议包
+    end else
+    begin
+      nS := Pos(cChar_WQ_Head_A8, FData);
+      if nS > 0 then
+      begin
+        nHeadType := 8;
+        nPos := Length(FData);
+        if nPos - nS + 1 < cSize_WQ_Data_A8 then Exit; //未找到完整协议包
+      end;
+    end;
+
+    if (nHeadType > 0) {and gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo,
+      @nInBlack, @nCheckType)} then //VIP车辆参与校正
+    begin
+      if nHeadType = 3 then //A3帧
+      begin
+        nE := nS + cSize_WQ_Data_A3 - 1;
+        FBuffer := Copy(FData, nS, cSize_WQ_Data_A3);
+
+        for nIdx:=Low(nBuf_A3) to High(nBuf_A3) do
+          nBuf_A3[nIdx] := FBuffer[nIdx + 1];
+        Move(nBuf_A3, nData_A3, cSize_WQ_Data_A3); //复制到协议包,准备分析
+
+        if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A3, nInBlack) then
+        begin
+          SetString(FBuffer, PChar(@nData_A3.FStart), cSize_WQ_Data_A3);
+          FBuffer[cSize_WQ_Data_A3] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A3 - 1);
+          FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+        end;
+      end else
+
+      if nHeadType = 8 then //A8帧
+      begin
+        nE := nS + cSize_WQ_Data_A8 - 1;
+        FBuffer := Copy(FData, nS, cSize_WQ_Data_A8);
+
+        for nIdx:=Low(nBuf_A8) to High(nBuf_A8) do
+          nBuf_A8[nIdx] := FBuffer[nIdx + 1];
+        Move(nBuf_A8, nData_A8, cSize_WQ_Data_A8); //复制到协议包,准备分析
+
+        if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A8, nInBlack) then
+        begin
+          SetString(FBuffer, PChar(@nData_A8.FStart), cSize_WQ_Data_A8);
+          FBuffer[cSize_WQ_Data_A8] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A8 - 1);
+          FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+        end;
+      end;
     end;
 
     RedirectData(nItem, nGroup, FData);
@@ -1895,7 +2052,7 @@ begin
       end;
     end; //微调数据
 
-    if CheckDetail.Checked then
+    if CheckShowWQ.Checked then
     begin
       nStr :=
         'CO2:[ ' + IntToStr(Item2Word(nData.FCO2)) + '-' +
@@ -1922,5 +2079,108 @@ begin
   end;
 end;
 {$ENDIF}
+
+//Date: 2020-04-27
+//Parm: 源端口;转发端口;帧头类型;协议数据;黑名单
+//Desc: 使用样本修正数据
+function TfFormMain.AdjustWQProtocol_5160(const nItem, nGroup,
+  nHeadType: Integer; const nData: Pointer;
+  const nInBlack: Boolean): Boolean;
+var nStr: string;
+    nInt: Integer;
+    nA3: PWQData5160_A3;
+    nA8: PWQData5160_A8;
+    nOA3: TWQData5160_A3;
+    nOA8: TWQData5160_A8;
+
+  //Desc: 显示日志
+  procedure ShowData;
+  begin
+    if nHeadType = 3 then
+    begin
+      nStr := Format('A3-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] NO:[ %d-%d ] O2:[ %d-%d ]', [
+           Item2Word(nOA3.FCO2),  Item2Word(nA3.FCO2),
+           Item2Word(nOA3.FCO), Item2Word(nA3.FCO),
+           Item2Word(nOA3.FHC), Item2Word(nA3.FHC),
+           Item2Word(nOA3.FNO), Item2Word(nA3.FNO),
+           Item2Word(nOA3.FO2), Item2Word(nA3.FO2)]);
+      WriteLog(nStr);
+    end else
+
+    if nHeadType = 8 then
+    begin
+      nStr := Format('A8-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] O2:[ %d-%d ] ' +
+              'NO:[ %d-%d ] NO2:[ %d-%d ] NOx:[ %d-%d ]', [
+           Item2Word(nOA8.FCO2),  Item2Word(nA8.FCO2),
+           Item2Word(nOA8.FCO), Item2Word(nA8.FCO),
+           Item2Word(nOA8.FHC), Item2Word(nA8.FHC),
+           Item2Word(nOA8.FO2), Item2Word(nA8.FO2),
+           Item2Word(nOA8.FNO), Item2Word(nA8.FNO),
+           Item2Word(nOA8.FNO2), Item2Word(nA8.FNO2),
+           Item2Word(nOA8.FNOx), Item2Word(nA8.FNOx)]);
+      WriteLog(nStr);
+    end;
+  end;
+begin
+  Result := False;
+  case nHeadType of
+   3: nA3 := nData;
+   8: nA8 := nData
+   else Exit;
+  end;
+
+  case nHeadType of
+   3: //A3指令
+    begin
+      if CheckShowWQ.Checked then
+        nOA3 := nA3^;
+      //copy data
+
+      nInt := Item2Word(nA3.FCO) + Item2Word(nA3.FCO2);
+      if nInt < 600 then //co2低浓度标识未开始
+      begin
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      Word2Item(nA3.FCO2, Trunc(Item2Word(nA3.FCO2) * 0.9));
+      Word2Item(nA3.FCO, Trunc(Item2Word(nA3.FCO) * 0.9));
+      Word2Item(nA3.FHC, Trunc(Item2Word(nA3.FHC) * 0.9));
+      Word2Item(nA3.FNO, Trunc(Item2Word(nA3.FNO) * 0.9));
+      Word2Item(nA3.FO2, Trunc(Item2Word(nA3.FO2) * 0.9));
+
+      if CheckShowWQ.Checked then
+        ShowData();
+      Result := True;
+    end;
+   8: //A8指令
+    begin
+      if CheckShowWQ.Checked then
+        nOA8 := nA8^;
+      //copy data
+
+      nInt := Item2Word(nA8.FCO) + Item2Word(nA8.FCO2);
+      if nInt < 600 then //co2低浓度标识未开始
+      begin
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      Word2Item(nA8.FCO2, Trunc(Item2Word(nA8.FCO2) * 0.9));
+      Word2Item(nA8.FCO, Trunc(Item2Word(nA8.FCO) * 0.9));
+      Word2Item(nA8.FHC, Trunc(Item2Word(nA8.FHC) * 0.9));
+      Word2Item(nA8.FNOx, Trunc(Item2Word(nA8.FNOx) * 0.9));
+      Word2Item(nA8.FO2, Trunc(Item2Word(nA8.FO2) * 0.9));
+      Word2Item(nA8.FNO, Trunc(Item2Word(nA8.FNO) * 0.9));
+      Word2Item(nA8.FNO2, Trunc(Item2Word(nA8.FNO2) * 0.9));
+
+      if CheckShowWQ.Checked then
+        ShowData();
+      Result := True;
+    end;
+  end;
+end;
 
 end.

@@ -25,6 +25,9 @@ type
   TDDType = (NHD6108, MQD6A);
   //大灯仪类型: 南华6108,明泉
 
+  TWQType = (MQW50A, GB5160);
+  //尾气仪类型: 明泉50A,锐意5160
+
   TWQStatus = (wsTL, wsHK, wsHKStop, wsCQ);
   //尾气业务状态: 调零,环境空气,环境空气停止,抽背景空气
          
@@ -60,6 +63,44 @@ type
     FKRB    : array[0..1] of Char;    //空燃比
     FHJYL   : array[0..1] of Char;    //环境压力
     FCRC    : array[0..0] of Char;    //校验位
+  end;
+
+  PWQData5160_A3 = ^TWQData5160_A3;
+  TWQData5160_A3 = record
+    FStart  : Char;                   //起始字节
+    FCMD    : Char;                   //命令号
+    FLength : Char;                   //长度
+    FCO2    : TWQValue;               //co2
+    FCO     : TWQValue;               //co
+    FHC     : TWQValue;               //碳氢
+    FNO     : TWQValue;               //氮氧
+    FO2     : TWQValue;               //氧气
+    FYW     : array[0..1] of Char;    //油温
+    FZS     : array[0..1] of Char;    //转速
+    FQLYL   : array[0..1] of Char;    //气路压力
+    FKRB    : array[0..1] of Char;    //空燃比
+    FPEF    : array[0..1] of Char;    //PEF
+    FCS     : array[0..0] of Char;    //和校验
+  end;
+
+  PWQData5160_A8 = ^TWQData5160_A8;
+  TWQData5160_A8 = record
+    FStart  : Char;                   //起始字节
+    FCMD    : Char;                   //命令号
+    FLength : Char;                   //长度
+    FCO2    : TWQValue;               //co2
+    FCO     : TWQValue;               //co
+    FHC     : TWQValue;               //碳氢
+    FNOx    : TWQValue;               //氮氧
+    FO2     : TWQValue;               //氧气
+    FYW     : array[0..1] of Char;    //油温
+    FZS     : array[0..1] of Char;    //转速
+    FQLYL   : array[0..1] of Char;    //气路压力
+    FKRB    : array[0..1] of Char;    //空燃比
+    FPEF    : array[0..1] of Char;    //PEF
+    FNO     : TWQValue;               //no
+    FNO2    : TWQValue;               //no2
+    FCS     : array[0..0] of Char;    //和校验
   end;
 
   TWQSimpleData = record
@@ -119,7 +160,8 @@ type
     FAdj_Val_CO2:Word;
     FAdj_BSE_CO2:Word;            //二氧化碳
     FAdj_LastActive: Int64;       //上次触发
-        
+                                              
+    FWQType: TWQType;             //尾气仪类型
     FWQStatus: TWQStatus;         //业务状态
     FWQStatusTime: Int64;         //业务时间戳
 
