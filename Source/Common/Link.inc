@@ -3,5 +3,5 @@
 {$DEFINE CheckCQCommand}
 //检查抽气指令,若不存在则补发
 
-{$DEFINE WQUseSimple}
+{.$DEFINE WQUseSimple}
 //尾气使用样本

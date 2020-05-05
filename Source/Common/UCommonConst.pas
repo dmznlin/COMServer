@@ -122,6 +122,16 @@ type
   end;
   TWQSimpleItems = array of TWQSimpleItem;
 
+  PWQBiliData = ^TWQBiliData;
+  TWQBiliData = record
+    FType  : string;              //分配
+    FName  : string;              //比例名称
+    FStart : Integer;             //开始值
+    FEnd   : Integer;             //结束值
+    FBili  : Double;              //比例值
+  end;
+  TWQBiliDataList = array of TWQBiliData;
+
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
@@ -175,6 +185,14 @@ type
     FGWDataTruck: string;         //样本车牌
     FGWDataLast: Int64;           //采样时间
     FGWDataList: TWQDataList;     //样本数据
+
+                                  //尾气比例
+    FWQBiliStart: Cardinal;       //开始计算计时
+    FWQBiliHC: Double;            //比例: HC
+    FWQBiliNO: Double;            //比例: NO
+    FWQBiliNO2: Double;           //比例: NO2
+    FWQBiliCO: Double;            //比例: CO
+    FWQBiliCO2: Double;           //比例: CO2
   end;
 
   PDataItem = ^TDataItem;
@@ -209,6 +227,9 @@ type
 
 var
   gPath: string;                            //程序路径
+  gWQCO2AfterPipe: Integer;                 //插管后CO2最小值
+  gWQStartInterval: Integer;                //插管后多少毫秒开始计算比例
+  gWQBili: TWQBiliDataList;                 //尾气校正比例
 
 function MonStatusToStr(const nStatus: TMonStatusItem): string;
 function Item2Word(const nItem: array of Char): Word;
