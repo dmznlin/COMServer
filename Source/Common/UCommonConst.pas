@@ -132,6 +132,14 @@ type
   end;
   TWQBiliDataList = array of TWQBiliData;
 
+  TWQBiliNextLevel = record
+    FHC    : Integer;             //阀值: HC
+    FNO    : Integer;             //阀值: NO
+    FNO2   : Integer;             //阀值: NO
+    FCO    : Integer;             //阀值: CO
+    FCO2   : Integer;             //阀值: CO2
+  end;
+
   TCOMItem = record
     FItemName: string;            //节点名
     FItemGroup: string;           //节点分组
@@ -189,10 +197,15 @@ type
                                   //尾气比例
     FWQBiliStart: Cardinal;       //开始计算计时
     FWQBiliHC: Double;            //比例: HC
+    FWQBiliHCNext: Boolean;
     FWQBiliNO: Double;            //比例: NO
+    FWQBiliNONext: Boolean;
     FWQBiliNO2: Double;           //比例: NO2
+    FWQBiliNO2Next: Boolean;
     FWQBiliCO: Double;            //比例: CO
+    FWQBiliCONext: Boolean;
     FWQBiliCO2: Double;           //比例: CO2
+    FWQBiliCO2Next: Boolean;
   end;
 
   PDataItem = ^TDataItem;
@@ -230,6 +243,7 @@ var
   gWQCO2AfterPipe: Integer;                 //插管后CO2最小值
   gWQStartInterval: Integer;                //插管后多少毫秒开始计算比例
   gWQBili: TWQBiliDataList;                 //尾气校正比例
+  gWQBiliNext: TWQBiliNextLevel;            //调整新比例的阀值
 
 function MonStatusToStr(const nStatus: TMonStatusItem): string;
 function Item2Word(const nItem: array of Char): Word;
