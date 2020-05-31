@@ -717,6 +717,8 @@ begin
   {$IFDEF DEBUG}
   Result := True;
   Exit;
+  {$ELSE}
+  Result := False;
   {$ENDIF}
 
   FSyncLock.Enter;
@@ -728,9 +730,12 @@ begin
       Exit;
     end;
 
-    Result := FindVIPTruck(MakeVIPTruck) >= 0;
-    if Result then Exit;
-
+    if (Time() >= gWNTimeStart) and (Time() <= gWNTimeEnd) then
+    begin
+      Result := FindVIPTruck(MakeVIPTruck) >= 0;
+      if Result then Exit;
+    end;
+    
     for nIdx:=Low(FTrucks) to High(FTrucks) do
     with FTrucks[nIdx] do
     if FEnable and (FType = nType) and (FLine = nLine) then

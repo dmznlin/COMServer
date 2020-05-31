@@ -1,8 +1,8 @@
 object fFormMain: TfFormMain
-  Left = 683
-  Top = 359
-  Width = 875
-  Height = 653
+  Left = 552
+  Top = 219
+  Width = 954
+  Height = 703
   BorderIcons = [biSystemMenu, biMinimize]
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,23 +19,23 @@ object fFormMain: TfFormMain
     Left = 165
     Top = 80
     Width = 2
-    Height = 515
+    Height = 565
     Align = alLeft
     Shape = bsSpacer
   end
   object MemoLog: TMemo
     Left = 167
     Top = 80
-    Width = 692
-    Height = 515
+    Width = 771
+    Height = 565
     Align = alClient
     ScrollBars = ssBoth
     TabOrder = 0
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 595
-    Width = 859
+    Top = 645
+    Width = 938
     Height = 19
     Panels = <>
   end
@@ -43,7 +43,7 @@ object fFormMain: TfFormMain
     Left = 0
     Top = 80
     Width = 165
-    Height = 515
+    Height = 565
     Align = alLeft
     ActiveGroupIndex = 0
     TabOrder = 2
@@ -79,7 +79,7 @@ object fFormMain: TfFormMain
     object dxNavGroup1Control: TdxNavBarGroupControl
       Left = 0
       Top = 19
-      Width = 148
+      Width = 165
       Height = 85
       Caption = 'dxNavGroup1Control'
       TabOrder = 2
@@ -145,7 +145,7 @@ object fFormMain: TfFormMain
     object dxNavGroup2Control: TdxNavBarGroupControl
       Left = 0
       Top = 123
-      Width = 148
+      Width = 165
       Height = 238
       TabOrder = 1
       UseStyle = True
@@ -233,7 +233,7 @@ object fFormMain: TfFormMain
     object dxNavGroup3Control: TdxNavBarGroupControl
       Left = 0
       Top = 380
-      Width = 148
+      Width = 165
       Height = 165
       TabOrder = 3
       UseStyle = True
@@ -254,12 +254,40 @@ object fFormMain: TfFormMain
         Caption = #36828#20809#24378#24230#19979#38480':'
         Transparent = True
       end
+      object Label1: TcxLabel
+        Left = 20
+        Top = 55
+        Caption = #19975#33021#30721#24320#22987#26102#38388':'
+        Transparent = True
+      end
+      object EditTimeStart: TcxTimeEdit
+        Left = 20
+        Top = 75
+        EditValue = 0d
+        Properties.OnChange = EditTimeEndPropertiesChange
+        TabOrder = 3
+        Width = 112
+      end
+      object Label2: TcxLabel
+        Left = 20
+        Top = 100
+        Caption = #19975#33021#30721#20851#38381#26102#38388':'
+        Transparent = True
+      end
+      object EditTimeEnd: TcxTimeEdit
+        Left = 20
+        Top = 120
+        EditValue = 0d
+        Properties.OnChange = EditTimeEndPropertiesChange
+        TabOrder = 5
+        Width = 112
+      end
     end
   end
   object HintPanel: TPanel
     Left = 0
     Top = 0
-    Width = 859
+    Width = 938
     Height = 80
     Align = alTop
     BevelOuter = bvNone
@@ -269,7 +297,7 @@ object fFormMain: TfFormMain
     object Image1: TImage
       Left = 0
       Top = 0
-      Width = 638
+      Width = 717
       Height = 80
       Align = alClient
       AutoSize = True
@@ -942,7 +970,7 @@ object fFormMain: TfFormMain
       Stretch = True
     end
     object Image2: TImage
-      Left = 638
+      Left = 717
       Top = 0
       Width = 221
       Height = 80

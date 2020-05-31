@@ -195,6 +195,7 @@ type
     FGWDataList: TWQDataList;     //样本数据
 
                                   //尾气比例
+    FWQZeroCO2Last: Cardinal;     //未插管计时
     FWQBiliStart: Cardinal;       //开始计算计时
     FWQBiliHC: Double;            //比例: HC
     FWQBiliHCNext: Boolean;
@@ -240,10 +241,14 @@ type
 
 var
   gPath: string;                            //程序路径
+  gWQCO2BeforePipe: Integer;                //插管前CO2最大值
+  gWQIntervalBeforePipe: Integer;           //插管前多少毫秒清空尾气数据
   gWQCO2AfterPipe: Integer;                 //插管后CO2最小值
-  gWQStartInterval: Integer;                //插管后多少毫秒开始计算比例
+  gWQIntervalAfterPipe: Integer;            //插管后多少毫秒开始计算比例
+
   gWQBili: TWQBiliDataList;                 //尾气校正比例
   gWQBiliNext: TWQBiliNextLevel;            //调整新比例的阀值
+  gWNTimeStart,gWNTimeEnd: TDateTime;       //万能码开始结束时间
 
 function MonStatusToStr(const nStatus: TMonStatusItem): string;
 function Item2Word(const nItem: array of Char): Word;

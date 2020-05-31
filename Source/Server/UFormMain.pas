@@ -14,7 +14,7 @@ uses
   cxContainer, cxEdit, IdContext, ExtCtrls, IdBaseComponent, IdComponent,
   IdCustomTCPServer, IdTCPServer, StdCtrls, cxMaskEdit, cxDropDownEdit,
   cxTextEdit, cxLabel, cxCheckBox, dxNavBarCollns, cxClasses, dxNavBarBase,
-  dxNavBar, ComCtrls;
+  dxNavBar, ComCtrls, cxSpinEdit, cxTimeEdit;
 
 type
   TfFormMain = class(TForm)
@@ -50,6 +50,10 @@ type
     CheckYG: TcxCheckBox;
     BtnOnline: TcxLabel;
     CheckShowWQ: TcxCheckBox;
+    Label1: TcxLabel;
+    EditTimeStart: TcxTimeEdit;
+    Label2: TcxLabel;
+    EditTimeEnd: TcxTimeEdit;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -63,6 +67,7 @@ type
     procedure ComboGQPropertiesChange(Sender: TObject);
     procedure Timer2Timer(Sender: TObject);
     procedure BtnOnlineClick(Sender: TObject);
+    procedure EditTimeEndPropertiesChange(Sender: TObject);
   private
     { Private declarations }
     FTrayIcon: TTrayIcon;
@@ -298,6 +303,12 @@ begin
     FYGMinValue := nIni.ReadInteger('Config', 'YGMinValue', 5000);
     //远光强度下限
 
+    EditTimeStart.Time := nIni.ReadTime('Config', 'WNTimeStart', Str2Time('00:00:00'));
+    gWNTimeStart := EditTimeStart.Time;
+    EditTimeEnd.Time := nIni.ReadTime('Config', 'WNTimeEnd', Str2Time('23:59:59'));
+    gWNTimeEnd := EditTimeEnd.Time;
+    //万能码时间控制
+
     with ComboGQ do
     begin
       nStr := nIni.ReadString('Config', 'YGMinValueList', '');
@@ -328,7 +339,9 @@ begin
     //--------------------------------------------------------------------------
     nIni.Free;
     nIni := TIniFile.Create(gPath + 'bili.ini');
-    gWQStartInterval := nIni.ReadInteger('Config', 'StartInterval', 3000);
+    gWQIntervalAfterPipe := nIni.ReadInteger('Config', 'StartInterval', 3000);
+    gWQIntervalBeforePipe := nIni.ReadInteger('Config', 'ClearInterval', 5000);
+    gWQCO2BeforePipe := nIni.ReadInteger('Config', 'CO2BeforePipe', 10);
     gWQCO2AfterPipe := nIni.ReadInteger('Config', 'CO2AfterPipe', 600);
 
     FillChar(gWQBiliNext, SizeOf(gWQBiliNext), #0);
@@ -383,6 +396,9 @@ begin
     nIni.WriteBool('Config', 'CloseCP', CheckCP.Checked);
     nIni.WriteBool('Config', 'CloseGQ', CheckGQ.Checked);
     SaveFormConfig(Self, nIni);
+
+    nIni.WriteTime('Config', 'WNTimeStart', EditTimeStart.Time);
+    nIni.WriteTime('Config', 'WNTimeEnd', EditTimeEnd.Time);
 
     if nIni.ReadString('Config', 'Port', '') = '' then
       nIni.WriteString('Config', 'Port', EditPort.Text);
@@ -445,6 +461,17 @@ begin
     CheckSrv.Checked := False;
     dxNavGroup2.Visible := False;
   end;
+end;
+
+procedure TfFormMain.EditTimeEndPropertiesChange(Sender: TObject);
+begin
+  if Sender = EditTimeStart then
+    gWNTimeStart := EditTimeStart.Time;
+  //xxxxx
+
+  if Sender = EditTimeEnd then
+    gWNTimeEnd := EditTimeEnd.Time;
+  //xxxxx
 end;
 
 procedure TfFormMain.CheckSrvClick(Sender: TObject);
@@ -791,14 +818,15 @@ begin
 
       FWQStatus := wsTL;
       FWQStatusTime := 0;
+      FWQZeroCO2Last := 0;
       FGWDataIndex := 0;
       FGWDataIndexSDS := 0;
       FGWDataIndexTime := 0;
-      
+
       FGWStatus := [];
       FGWDataLast := 0;
       SetLength(FGWDataList, 0);
-                       
+
       FDeviceType := TDeviceType(ReadInteger(nList[nIdx], 'DeviceType', 0));
       //设备类型
 
@@ -2234,6 +2262,10 @@ begin
       //copy data
 
       nInt := Item2Word(nA3.FCO) + Item2Word(nA3.FCO2);
+      if nInt < gWQCO2BeforePipe then
+        FWQZeroCO2Last := GetTickCount();
+      //未插管计时开始
+
       if nInt < gWQCO2AfterPipe then //co2低浓度标识未开始
       begin
         FWQBiliCO2 := -1;
@@ -2241,12 +2273,26 @@ begin
         FWQBiliStart := GetTickCount();
         //开始比例计算计时
 
-        if CheckShowWQ.Checked then
-          ShowData();
+        if (nInt >= gWQCO2BeforePipe) and
+           (GetTickCountDiff(FWQZeroCO2Last) <= gWQIntervalBeforePipe) then
+        begin
+          Word2Item(nA3.FCO, 0);
+          Word2Item(nA3.FHC, 0);
+          Word2Item(nA3.FNO, 0);
+          
+          Result := True;
+          WriteLog(Format('%d.A3-插管后CO2浓度过低,已清零', [FLineNo]));
+        end;
+
+        if CheckShowWQ.Checked then ShowData();
         Exit;
+      end else
+      begin
+        FWQZeroCO2Last := 0;
+        //浓度升高,计时关闭
       end;
 
-      if GetTickCountDiff(FWQBiliStart) < gWQStartInterval then
+      if GetTickCountDiff(FWQBiliStart) < gWQIntervalAfterPipe then
       begin
         //Word2Item(nA3.FCO2, 0);
         Word2Item(nA3.FCO, Random(2));
@@ -2338,19 +2384,36 @@ begin
       //copy data
 
       nInt := Item2Word(nA8.FCO) + Item2Word(nA8.FCO2);
+      if nInt < gWQCO2BeforePipe then
+        FWQZeroCO2Last := GetTickCount();
+      //未插管计时开始
+      
       if nInt < gWQCO2AfterPipe then //co2低浓度标识未开始
       begin
         FWQBiliCO2 := -1;
         //待确定比例
         FWQBiliStart := GetTickCount();
         //开始比例计算计时
-        
+
+        if (nInt >= gWQCO2BeforePipe) and
+           (GetTickCountDiff(FWQZeroCO2Last) <= gWQIntervalBeforePipe) then
+        begin
+          Word2Item(nA8.FCO,  0);
+          Word2Item(nA8.FHC,  0);
+          Word2Item(nA8.FNO,  0);
+          Word2Item(nA8.FNO2, 0);
+          Word2Item(nA8.FNOx, 0);
+
+          Result := True;
+          WriteLog(Format('%d.A8-插管后CO2浓度过低,已清零', [FLineNo]));
+        end;
+
         if CheckShowWQ.Checked then
           ShowData();
         Exit;
       end;
 
-      if GetTickCountDiff(FWQBiliStart) < gWQStartInterval then
+      if GetTickCountDiff(FWQBiliStart) < gWQIntervalAfterPipe then
       begin
         //Word2Item(nA8.FCO2, 0);
         Word2Item(nA8.FCO,  Random(2));
