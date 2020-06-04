@@ -122,6 +122,23 @@ type
   end;
   TWQSimpleItems = array of TWQSimpleItem;
 
+  TWQBiaoQi = record
+    FLineNo : Integer;                //线号
+    FHC     : Integer;
+    FHC_WC  : Integer;                //HC,误差
+    FNO     : Integer;
+    FNO_WC  : Integer;                //NO,误差
+    FNO2    : Integer;
+    FNO2_WC : Integer;                //NO2,误差
+    FCO     : Integer;
+    FCO_WC  : Integer;                //CO,误差
+    FCO2    : Integer;
+    FCO2_WC : Integer;                //CO2,误差
+    FO2     : Integer;
+    FO2_WC  : Integer;                //O2,误差
+  end;
+  TWQBiaoQiList = array of TWQBiaoQi;
+
   PWQBiliData = ^TWQBiliData;
   TWQBiliData = record
     FType  : string;              //分配
@@ -207,6 +224,8 @@ type
     FWQBiliCONext: Boolean;
     FWQBiliCO2: Double;           //比例: CO2
     FWQBiliCO2Next: Boolean;
+
+    FWQBiaoQiEnable: Boolean;     //标气检测
   end;
 
   PDataItem = ^TDataItem;
@@ -248,6 +267,7 @@ var
 
   gWQBili: TWQBiliDataList;                 //尾气校正比例
   gWQBiliNext: TWQBiliNextLevel;            //调整新比例的阀值
+  gWQBiaoQi: TWQBiaoQiList;                 //标准气体
   gWNTimeStart,gWNTimeEnd: TDateTime;       //万能码开始结束时间
 
 function MonStatusToStr(const nStatus: TMonStatusItem): string;
