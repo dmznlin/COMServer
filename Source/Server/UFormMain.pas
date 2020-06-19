@@ -255,6 +255,7 @@ var nStr: string;
       if nSection = 'NO2' then gWQBiliNext.FNO2 := Trunc(StrToFloat(nS) * nEnlarge);
       if nSection = 'CO' then gWQBiliNext.FCO := Trunc(StrToFloat(nS) * nEnlarge);
       if nSection = 'CO2' then gWQBiliNext.FCO2 := Trunc(StrToFloat(nS) * nEnlarge);
+      if nSection = 'KRB' then gWQBiliNext.FKRB := Trunc(StrToFloat(nS) * nEnlarge);
     end;
   end;
 
@@ -422,6 +423,7 @@ begin
     LoadWQBili('NO2');
     LoadWQBili('CO');
     LoadWQBili('CO2');
+    LoadWQBili('KRB');
 
     //--------------------------------------------------------------------------
     nIni.Free;
@@ -2317,20 +2319,22 @@ var nStr: string;
   begin
     if nHeadType = 3 then
     begin
-      nStr := Format('%d.A3-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] NO:[ %d-%d ] O2:[ %d-%d ]', [
+      nStr := Format('%d.A3-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] ' +
+              'NO:[ %d-%d ] O2:[ %d-%d ] KRB:[ %d-%d ]', [
            FCOMPorts[nItem].FLineNo,
            Item2Word(nOA3.FCO2),  Item2Word(nA3.FCO2),
            Item2Word(nOA3.FCO), Item2Word(nA3.FCO),
            Item2Word(nOA3.FHC), Item2Word(nA3.FHC),
            Item2Word(nOA3.FNO), Item2Word(nA3.FNO),
-           Item2Word(nOA3.FO2), Item2Word(nA3.FO2)]);
+           Item2Word(nOA3.FO2), Item2Word(nA3.FO2),
+           Item2Word(nOA3.FKRB), Item2Word(nA3.FKRB)]);
       WriteLog(nStr);
     end else
 
     if nHeadType = 8 then
     begin
       nStr := Format('%d.A8-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] O2:[ %d-%d ] ' +
-              'NO:[ %d-%d ] NO2:[ %d-%d ] NOx:[ %d-%d ]', [
+              'NO:[ %d-%d ] NO2:[ %d-%d ] NOx:[ %d-%d ] KRB:[ %d-%d ]', [
            FCOMPorts[nItem].FLineNo,
            Item2Word(nOA8.FCO2),  Item2Word(nA8.FCO2),
            Item2Word(nOA8.FCO), Item2Word(nA8.FCO),
@@ -2338,7 +2342,8 @@ var nStr: string;
            Item2Word(nOA8.FO2), Item2Word(nA8.FO2),
            Item2Word(nOA8.FNO), Item2Word(nA8.FNO),
            Item2Word(nOA8.FNO2), Item2Word(nA8.FNO2),
-           Item2Word(nOA8.FNOx), Item2Word(nA8.FNOx)]);
+           Item2Word(nOA8.FNOx), Item2Word(nA8.FNOx),
+           Item2Word(nOA8.FKRB), Item2Word(nA8.FKRB)]);
       WriteLog(nStr);
     end;
   end;
@@ -2421,11 +2426,13 @@ begin
         FWQBiliNO   := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo);
         FWQBiliCO   := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo);
         FWQBiliCO2  := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo);
+        FWQBiliKRB  := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo);
 
         FWQBiliHCNext := False;
         FWQBiliNONext := False;
         FWQBiliCONext := False;
         FWQBiliCO2Next := False;
+        FWQBiliKRBNext := False;
       end else
       begin
         if (not FWQBiliHCNext) and (gWQBiliNext.FHC > 0) and
@@ -2455,6 +2462,13 @@ begin
           FWQBiliCO2Next := True;
           FWQBiliCO2 := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo);
         end;
+
+        if (not FWQBiliKRBNext) and (gWQBiliNext.FKRB > 0) and
+           (Item2Word(nA3.FKRB) >= gWQBiliNext.FKRB) then
+        begin
+          FWQBiliKRBNext := True;
+          FWQBiliKRB := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo);
+        end;
       end;
 
       //------------------------------------------------------------------------
@@ -2479,7 +2493,13 @@ begin
           nInt := Item2Word(nA3.FCO2);
           if nVal < 1 then nVal := nInt;
           Word2Item(nA3.FO2, Trunc(Item2Word(nA3.FO2) * (2 - nInt/nVal)));
-        end; 
+        end;
+
+        nInt := Trunc(Item2Word(nA3.FKRB) * FWQBiliKRB);
+        if nInt < 990 then  //下限0.99
+          nInt := 990 + Random(5);
+        Word2Item(nA3.FKRB, nInt);
+        //CO2变动时修正空燃比
       end;
 
       if CheckShowWQ.Checked then
@@ -2600,12 +2620,14 @@ begin
         FWQBiliNO2  := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo);
         FWQBiliCO   := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo);
         FWQBiliCO2  := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo);
+        FWQBiliKRB  := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo);
 
         FWQBiliHCNext := False;
         FWQBiliNONext := False;
         FWQBiliNO2Next := False;
         FWQBiliCONext := False;
         FWQBiliCO2Next := False;
+        FWQBiliKRBNext := False;
       end else
       begin //重新计算比例
         if (not FWQBiliHCNext) and (gWQBiliNext.FHC > 0) and
@@ -2642,6 +2664,13 @@ begin
           FWQBiliCO2Next := True;
           FWQBiliCO2 := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo);
         end;
+
+        if (not FWQBiliKRBNext) and (gWQBiliNext.FKRB > 0) and
+           (Item2Word(nA8.FKRB) >= gWQBiliNext.FKRB) then
+        begin
+          FWQBiliKRBNext := True;
+          FWQBiliKRB := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo);
+        end;
       end;
 
       //------------------------------------------------------------------------
@@ -2668,7 +2697,13 @@ begin
           nInt := Item2Word(nA8.FCO2);
           if nVal < 1 then nVal := nInt;
           Word2Item(nA8.FO2, Trunc(Item2Word(nA8.FO2) * (2 - nInt/nVal)));
-        end; 
+        end;
+
+        nInt := Trunc(Item2Word(nA8.FKRB) * FWQBiliKRB);
+        if nInt < 990 then //下限0.99
+          nInt := 990 + Random(5);
+        Word2Item(nA8.FKRB, nInt);
+        //CO2变动时修正空燃比
       end;
         
       if CheckShowWQ.Checked then

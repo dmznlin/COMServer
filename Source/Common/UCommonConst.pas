@@ -78,7 +78,7 @@ type
     FYW     : array[0..1] of Char;    //油温
     FZS     : array[0..1] of Char;    //转速
     FQLYL   : array[0..1] of Char;    //气路压力
-    FKRB    : array[0..1] of Char;    //空燃比
+    FKRB    : TWQValue;               //空燃比
     FPEF    : array[0..1] of Char;    //PEF
     FCS     : array[0..0] of Char;    //和校验
   end;
@@ -96,7 +96,7 @@ type
     FYW     : array[0..1] of Char;    //油温
     FZS     : array[0..1] of Char;    //转速
     FQLYL   : array[0..1] of Char;    //气路压力
-    FKRB    : array[0..1] of Char;    //空燃比
+    FKRB    : TWQValue;               //空燃比
     FPEF    : array[0..1] of Char;    //PEF
     FNO     : TWQValue;               //no
     FNO2    : TWQValue;               //no2
@@ -155,6 +155,7 @@ type
     FNO2   : Integer;             //阀值: NO
     FCO    : Integer;             //阀值: CO
     FCO2   : Integer;             //阀值: CO2
+    FKRB   : Integer;             //阀值: 空燃比
   end;
 
   TCOMItem = record
@@ -224,6 +225,8 @@ type
     FWQBiliCONext: Boolean;
     FWQBiliCO2: Double;           //比例: CO2
     FWQBiliCO2Next: Boolean;
+    FWQBiliKRB: Double;           //比例: 空燃比
+    FWQBiliKRBNext: Boolean;
 
     FWQBiaoQiEnable: Boolean;     //标气检测
   end;
