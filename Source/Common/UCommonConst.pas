@@ -25,8 +25,8 @@ type
   TDDType = (NHD6108, MQD6A);
   //大灯仪类型: 南华6108,明泉
 
-  TWQType = (MQW50A, GB5160);
-  //尾气仪类型: 明泉50A,锐意5160
+  TWQType = (MQW50A, GB5160, MQ5105);
+  //尾气仪类型: 明泉50A,锐意5160,明泉5105
 
   TWQStatus = (wsTL, wsHK, wsHKStop, wsCQ);
   //尾气业务状态: 调零,环境空气,环境空气停止,抽背景空气

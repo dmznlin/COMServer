@@ -97,6 +97,7 @@ type
     procedure ParseProtocol(const nItem,nGroup: Integer);
     procedure ParseProtocol_6A(const nItem,nGroup: Integer);
     procedure ParseWQProtocol(const nItem,nGroup: Integer);
+    procedure ParseWQProtocol_5105(const nItem,nGroup: Integer);
     procedure ParseWQProtocol_5160(const nItem,nGroup: Integer);
     procedure OnCOMData(Sender: TObject; Count: Integer);
     //数据处理
@@ -109,6 +110,8 @@ type
     function AdjustWQProtocol(const nItem,nGroup: Integer;
       const nData: PWQData; const nInBlack: Boolean): Boolean;
     {$ENDIF}
+    function AdjustWQProtocol_5105(const nItem,nGroup,nHeadType: Integer;
+      const nData: Pointer; const nInBlack: Boolean): Boolean;
     function AdjustWQProtocol_5160(const nItem,nGroup,nHeadType: Integer;
       const nData: Pointer; const nInBlack: Boolean): Boolean;
     //校正数据
@@ -183,6 +186,7 @@ begin
   case WQ of
    MQW50A : Result := 'MQW50A';
    GB5160 : Result := 'GB5160';
+   MQ5105 : Result := 'MQ5105';
   end;
 end;
 
@@ -725,8 +729,13 @@ begin
         if (FLineNo <> nInt) or (FDeviceType <> dtDevice) then Continue;
         //同线,下位机上行数据时校正
 
-        if (FItemType = ctWQ) and (FWQType = GB5160) then Continue;
-        //无需处理工位状态
+        if FItemType = ctWQ then
+        begin
+          case FWQType of
+           GB5160,
+           MQ5105: Continue;           
+          end; //无需处理工位状态
+        end;
 
         nStr := nList.Values['Status'];
         if not IsNumber(nStr, False) then Continue;
@@ -882,11 +891,11 @@ begin
            FDDType := MQD6A
       else FDDType := NHD6108;
 
+      FWQType := GB5160; //尾气仪类型
       nStr := ReadString(nList[nIdx], 'WQModel', 'MQW50A');
-      if CompareText(nStr, 'MQW50A') = 0 then
-           FWQType := MQW50A
-      else FWQType := GB5160;//尾气仪类型
-
+      if CompareText(nStr, 'MQW50A') = 0 then FWQType := MQW50A else
+      if CompareText(nStr, 'MQ5105') = 0 then FWQType := MQ5105;
+      
       FPortName  := ReadString(nList[nIdx], 'PortName', '');
       FBaudRate  := StrToBaudRate(ReadString(nList[nIdx], 'BaudRate', '9600'));
       FDataBits  := StrToDataBits(ReadString(nList[nIdx], 'DataBits', '8'));
@@ -1563,11 +1572,18 @@ var nS,nE,nPos,nIdx: Integer;
 begin
   with FCOMPorts[nItem] do
   begin
-    if FWQType = GB5160 then
-    begin
-      ParseWQProtocol_5160(nItem, nGroup);
-      Exit;
-    end; //GasBoard5160协议解析
+    case FWQType of
+     GB5160: //GasBoard5160协议解析
+      begin
+        ParseWQProtocol_5160(nItem, nGroup);
+        Exit;
+      end;
+     MQ5105: //明泉5105协议解析
+      begin
+        ParseWQProtocol_5105(nItem, nGroup);
+        Exit;
+      end;
+    end;
 
     nE := Length(FData);
     if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
@@ -1855,6 +1871,141 @@ begin
         Move(nBuf_A8, nData_A8, cSize_WQ_Data_A8); //复制到协议包,准备分析
 
         if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A8, False) then
+        begin
+          SetString(FBuffer, PChar(@nData_A8.FStart), cSize_WQ_Data_A8);
+          FBuffer[cSize_WQ_Data_A8] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A8 - 1);
+          FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+        end;
+      end;
+    end;
+
+    RedirectData(nItem, nGroup, FData);
+    FData := '';
+    //发送数据
+  end;
+end;
+
+//Date: 2020-06-19
+//Parm: 源端口;转发端口
+//Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+//      支持设备: 明泉5105汽油
+procedure TfFormMain.ParseWQProtocol_5105(const nItem, nGroup: Integer);
+var nS,nE,nPos,nIdx: Integer;
+    nHeadType: Integer;
+
+    nData_A3: TWQData5160_A3;
+    nData_A8: TWQData5160_A8;
+    nBuf_A3: array[0..cSize_WQ_Data_A3-1] of Char;
+    nBuf_A8: array[0..cSize_WQ_Data_A8-1] of Char;
+begin
+  with FCOMPorts[nItem] do
+  begin
+    nHeadType := -1;
+    //默认无法区分协议头
+    nE := Length(FData);
+
+    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      nE := 0;
+    end; //超时数据直接转发
+
+    if nE > cSize_WQ_Data_A3 then
+    begin
+      while nE > 0 do
+      begin
+        nPos := nE;
+        Dec(nE);
+
+        if Copy(FData, nPos, cChar_WQ_Head_A3_L) = cChar_WQ_Head_A3 then Break;
+        //A3 last header
+        if Copy(FData, nPos, cChar_WQ_Head_A8_L) = cChar_WQ_Head_A8 then Break;
+        //A8 last header
+      end;
+
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
+        System.Delete(FData, 1, nE);
+      end;
+    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
+
+    //--------------------------------------------------------------------------
+    if Time() < gWNTimeStart then
+    begin
+      if Pos(cChar_WQ_JCQ, FBuffer) > 0 then
+      begin
+        FWQBiaoQiEnable := True;
+        WriteLog(Format('%d.开始通检查气', [FLineNo]));
+      end;
+
+      if Pos(cChar_WQ_JCQDone, FBuffer) > 0 then
+      begin
+        FWQBiaoQiEnable := False;
+        WriteLog(Format('%d.通检查气结束', [FLineNo]));
+      end;
+    end else FWQBiaoQiEnable := False;
+                            
+    if ((Pos(cChar_WQ_Head_A3, FBuffer) < 1) and
+        (Pos(cChar_WQ_Head_A8, FBuffer) < 1)) and (FData = '') then
+    begin
+      RedirectData(nItem, nGroup, FBuffer);
+      //非协议数据直接转发
+      Exit;
+    end; 
+
+    FDataLast := GetTickCount;
+    FData :=  FData + FBuffer;
+    //保存数据待分析
+
+    nS := Pos(cChar_WQ_Head_A3, FData);
+    if nS > 0 then
+    begin
+      nHeadType := 3;
+      nPos := Length(FData);
+      if nPos - nS + 1 < cSize_WQ_Data_A3 then Exit; //未找到完整协议包
+    end else
+    begin
+      nS := Pos(cChar_WQ_Head_A8, FData);
+      if nS > 0 then
+      begin
+        nHeadType := 8;
+        nPos := Length(FData);
+        if nPos - nS + 1 < cSize_WQ_Data_A8 then Exit; //未找到完整协议包
+      end;
+    end;
+
+    if (nHeadType > 0) and (FWQBiaoQiEnable or
+        gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo)) then //VIP车辆参与校正
+    begin
+      if nHeadType = 3 then //A3帧
+      begin
+        nE := nS + cSize_WQ_Data_A3 - 1;
+        FBuffer := Copy(FData, nS, cSize_WQ_Data_A3);
+
+        for nIdx:=Low(nBuf_A3) to High(nBuf_A3) do
+          nBuf_A3[nIdx] := FBuffer[nIdx + 1];
+        Move(nBuf_A3, nData_A3, cSize_WQ_Data_A3); //复制到协议包,准备分析
+
+        if AdjustWQProtocol_5105(nItem, nGroup, nHeadType, @nData_A3, False) then
+        begin
+          SetString(FBuffer, PChar(@nData_A3.FStart), cSize_WQ_Data_A3);
+          FBuffer[cSize_WQ_Data_A3] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A3 - 1);
+          FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+        end;
+      end else
+
+      if nHeadType = 8 then //A8帧
+      begin
+        nE := nS + cSize_WQ_Data_A8 - 1;
+        FBuffer := Copy(FData, nS, cSize_WQ_Data_A8);
+
+        for nIdx:=Low(nBuf_A8) to High(nBuf_A8) do
+          nBuf_A8[nIdx] := FBuffer[nIdx + 1];
+        Move(nBuf_A8, nData_A8, cSize_WQ_Data_A8); //复制到协议包,准备分析
+
+        if AdjustWQProtocol_5105(nItem, nGroup, nHeadType, @nData_A8, False) then
         begin
           SetString(FBuffer, PChar(@nData_A8.FStart), cSize_WQ_Data_A8);
           FBuffer[cSize_WQ_Data_A8] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A8 - 1);
@@ -2303,7 +2454,7 @@ end;
 
 //Date: 2020-04-27
 //Parm: 源端口;转发端口;帧头类型;协议数据;黑名单
-//Desc: 使用样本修正数据
+//Desc: 使用比例修正数据
 function TfFormMain.AdjustWQProtocol_5160(const nItem, nGroup,
   nHeadType: Integer; const nData: Pointer;
   const nInBlack: Boolean): Boolean;
@@ -2526,12 +2677,14 @@ begin
             Result := True;
           end;
 
+          nVal :=  Item2Word(nA8.FNO);
           if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
           begin
             Word2Item(nA8.FNO,  FNO + Random(5));
             Result := True;
           end;
 
+          nVal :=  Item2Word(nA8.FNO2);
           if (nVal < FNO2 - FNO2_WC) or (nVal > FNO2 + FNO2_WC) then
           begin
             Word2Item(nA8.FNO2,  FNO2 + Random(5));
@@ -2544,18 +2697,485 @@ begin
             //combine
           end;
 
+          nVal :=  Item2Word(nA8.FCO);
           if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
           begin
             Word2Item(nA8.FCO,  FCO + Random(3));
             Result := True;
           end;
 
+          nVal :=  Item2Word(nA8.FCO2);
           if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
           begin
             Word2Item(nA8.FCO2,  FCO2 + Random(3));
             Result := True;
           end;
 
+          nVal :=  Item2Word(nA8.FO2);
+          if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
+          begin
+            Word2Item(nA8.FO2,  FO2 + Random(3));
+            Result := True;
+          end;
+        end;
+
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      nInt := Item2Word(nA8.FCO) + Item2Word(nA8.FCO2);
+      if nInt < gWQCO2BeforePipe then
+        FWQZeroCO2Last := GetTickCount();
+      //未插管计时开始
+      
+      if nInt < gWQCO2AfterPipe then //co2低浓度标识未开始
+      begin
+        FWQBiliCO2 := -1;
+        //待确定比例
+        FWQBiliStart := GetTickCount();
+        //开始比例计算计时
+
+        if (nInt >= gWQCO2BeforePipe) and
+           (GetTickCountDiff(FWQZeroCO2Last) <= gWQIntervalBeforePipe) then
+        begin
+          Word2Item(nA8.FCO,  0);
+          Word2Item(nA8.FHC,  0);
+          Word2Item(nA8.FNO,  0);
+          Word2Item(nA8.FNO2, 0);
+          Word2Item(nA8.FNOx, 0);
+
+          Result := True;
+          WriteLog(Format('%d.A8-插管后CO2浓度过低,已清零', [FLineNo]));
+        end;
+
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      if GetTickCountDiff(FWQBiliStart) < gWQIntervalAfterPipe then
+      begin
+        //Word2Item(nA8.FCO2, 0);
+        Word2Item(nA8.FCO,  Random(2));
+        Word2Item(nA8.FHC,  Random(2));
+        Word2Item(nA8.FNO,  Random(2));
+        Word2Item(nA8.FNO2, Random(2));
+        Word2Item(nA8.FNOx, Item2Word(nA8.FNO) + Item2Word(nA8.FNO2));
+        //Word2Item(nA8.FO2, 2085 + Random(3));
+
+        if CheckShowWQ.Checked then ShowData();
+        Result := True;
+        Exit;
+      end else
+
+      if FWQBiliCO2 <= 0 then //无比例值,开始计算比例
+      begin
+        FWQBiliHC   := GetWQBili('HC', Item2Word(nA8.FHC), FLineNo);
+        FWQBiliNO   := GetWQBili('NO', Item2Word(nA8.FNO), FLineNo);
+        FWQBiliNO2  := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo);
+        FWQBiliCO   := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo);
+        FWQBiliCO2  := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo);
+        FWQBiliKRB  := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo);
+
+        FWQBiliHCNext := False;
+        FWQBiliNONext := False;
+        FWQBiliNO2Next := False;
+        FWQBiliCONext := False;
+        FWQBiliCO2Next := False;
+        FWQBiliKRBNext := False;
+      end else
+      begin //重新计算比例
+        if (not FWQBiliHCNext) and (gWQBiliNext.FHC > 0) and
+           (Item2Word(nA8.FHC) >= gWQBiliNext.FHC) then
+        begin
+          FWQBiliHCNext := True;
+          FWQBiliHC := GetWQBili('HC', Item2Word(nA8.FHC), FLineNo);
+        end;
+
+        if (not FWQBiliNONext) and (gWQBiliNext.FNO > 0) and
+           (Item2Word(nA8.FNO) >= gWQBiliNext.FNO) then
+        begin
+          FWQBiliNONext := True;
+          FWQBiliNO := GetWQBili('NO', Item2Word(nA8.FNO), FLineNo);
+        end;
+
+        if (not FWQBiliNO2Next) and (gWQBiliNext.FNO2 > 0) and
+           (Item2Word(nA8.FNO2) >= gWQBiliNext.FNO2) then
+        begin
+          FWQBiliNO2Next := True;
+          FWQBiliNO2 := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo);
+        end;
+
+        if (not FWQBiliCONext) and (gWQBiliNext.FCO > 0) and
+           (Item2Word(nA8.FCO) >= gWQBiliNext.FCO) then
+        begin
+          FWQBiliCONext := True;
+          FWQBiliCO := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo);
+        end;
+
+        if (not FWQBiliCO2Next) and (gWQBiliNext.FCO2 > 0) and
+           (Item2Word(nA8.FCO2) <= gWQBiliNext.FCO2) then
+        begin
+          FWQBiliCO2Next := True;
+          FWQBiliCO2 := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo);
+        end;
+
+        if (not FWQBiliKRBNext) and (gWQBiliNext.FKRB > 0) and
+           (Item2Word(nA8.FKRB) >= gWQBiliNext.FKRB) then
+        begin
+          FWQBiliKRBNext := True;
+          FWQBiliKRB := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo);
+        end;
+      end;
+
+      //------------------------------------------------------------------------
+      Word2Item(nA8.FCO, Trunc(Item2Word(nA8.FCO) * FWQBiliCO));
+      Word2Item(nA8.FHC, Trunc(Item2Word(nA8.FHC) * FWQBiliHC));
+      Word2Item(nA8.FNO, Trunc(Item2Word(nA8.FNO) * FWQBiliNO));
+      Word2Item(nA8.FNO2, Trunc(Item2Word(nA8.FNO2) * FWQBiliNO2));
+      Word2Item(nA8.FNOx, Trunc(Item2Word(nA8.FNO) + Item2Word(nA8.FNO2)));
+
+      nInt := Item2Word(nA8.FCO2);
+      if nInt < 1400 then //CO2不足时补CO2
+      begin
+        nVal := nInt;
+        //old
+        nInt := Trunc(nInt * FWQBiliCO2);
+        //new
+        
+        if nInt > 1500 then
+             Word2Item(nA8.FCO2, 1470 * Random(30))
+        else Word2Item(nA8.FCO2, nInt);
+
+        if Item2Word(nA8.FO2) >= 300 then //反向降低O2,过低时不予校正
+        begin
+          nInt := Item2Word(nA8.FCO2);
+          if nVal < 1 then nVal := nInt;
+          Word2Item(nA8.FO2, Trunc(Item2Word(nA8.FO2) * (2 - nInt/nVal)));
+        end;
+
+        nInt := Trunc(Item2Word(nA8.FKRB) * FWQBiliKRB);
+        if nInt < 990 then //下限0.99
+          nInt := 990 + Random(5);
+        Word2Item(nA8.FKRB, nInt);
+        //CO2变动时修正空燃比
+      end;
+        
+      if CheckShowWQ.Checked then
+        ShowData();
+      Result := True;
+    end;
+  end;
+end;
+
+//Date: 2020-06-19
+//Parm: 源端口;转发端口;帧头类型;协议数据;黑名单
+//Desc: 使用比例修正数据
+function TfFormMain.AdjustWQProtocol_5105(const nItem, nGroup,
+  nHeadType: Integer; const nData: Pointer;
+  const nInBlack: Boolean): Boolean;
+var nStr: string;
+    nInt,nVal: Integer;
+    nA3: PWQData5160_A3;
+    nA8: PWQData5160_A8;
+    nOA3: TWQData5160_A3;
+    nOA8: TWQData5160_A8;
+
+  //Desc: 显示日志
+  procedure ShowData;
+  begin
+    if nHeadType = 3 then
+    begin
+      nStr := Format('%d.A3-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] ' +
+              'NO:[ %d-%d ] O2:[ %d-%d ] KRB:[ %d-%d ]', [
+           FCOMPorts[nItem].FLineNo,
+           Item2Word(nOA3.FCO2),  Item2Word(nA3.FCO2),
+           Item2Word(nOA3.FCO), Item2Word(nA3.FCO),
+           Item2Word(nOA3.FHC), Item2Word(nA3.FHC),
+           Item2Word(nOA3.FNO), Item2Word(nA3.FNO),
+           Item2Word(nOA3.FO2), Item2Word(nA3.FO2),
+           Item2Word(nOA3.FKRB), Item2Word(nA3.FKRB)]);
+      WriteLog(nStr);
+    end else
+
+    if nHeadType = 8 then
+    begin
+      nStr := Format('%d.A8-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] O2:[ %d-%d ] ' +
+              'NO:[ %d-%d ] NO2:[ %d-%d ] NOx:[ %d-%d ] KRB:[ %d-%d ]', [
+           FCOMPorts[nItem].FLineNo,
+           Item2Word(nOA8.FCO2),  Item2Word(nA8.FCO2),
+           Item2Word(nOA8.FCO), Item2Word(nA8.FCO),
+           Item2Word(nOA8.FHC), Item2Word(nA8.FHC),
+           Item2Word(nOA8.FO2), Item2Word(nA8.FO2),
+           Item2Word(nOA8.FNO), Item2Word(nA8.FNO),
+           Item2Word(nOA8.FNO2), Item2Word(nA8.FNO2),
+           Item2Word(nOA8.FNOx), Item2Word(nA8.FNOx),
+           Item2Word(nOA8.FKRB), Item2Word(nA8.FKRB)]);
+      WriteLog(nStr);
+    end;
+  end;
+
+  //Desc: 标气索引
+  function GetBiaoQi(const nLine: Integer): Integer;
+  var i: Integer;
+  begin
+    Result := -1;
+    for i:=Low(gWQBiaoQi) to High(gWQBiaoQi) do
+    if gWQBiaoQi[i].FLineNo = nLine then
+    begin
+      Result := i;
+      Break;
+    end;
+  end;
+begin
+  Result := False;
+  case nHeadType of
+   3: nA3 := nData;
+   8: nA8 := nData
+   else Exit;
+  end;
+
+  with FCOMPorts[nItem] do
+  case nHeadType of
+   3: //A3指令
+    begin
+      if CheckShowWQ.Checked then
+        nOA3 := nA3^;
+      //copy data
+
+      if FWQBiaoQiEnable then //抽标准气
+      begin
+        nInt := GetBiaoQi(FLineNo);
+        if nInt > -1 then
+        with gWQBiaoQi[nInt] do
+        begin
+          nVal :=  Item2Word(nA3.FHC);
+          if (nVal < FHC - FHC_WC) or (nVal > FHC + FHC_WC) then
+          begin
+            Word2Item(nA3.FHC,  FHC + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FNO);
+          if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
+          begin
+            Word2Item(nA3.FNO,  FNO + Random(5));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FCO);
+          if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
+          begin
+            Word2Item(nA3.FCO,  FCO + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FCO2);
+          if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
+          begin
+            Word2Item(nA3.FCO2,  FCO2 + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FO2);
+          if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
+          begin
+            Word2Item(nA3.FO2,  FO2 + Random(3));
+            Result := True;
+          end;
+        end;
+
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      nInt := Item2Word(nA3.FCO) + Item2Word(nA3.FCO2);
+      if nInt < gWQCO2BeforePipe then
+        FWQZeroCO2Last := GetTickCount();
+      //未插管计时开始
+
+      if nInt < gWQCO2AfterPipe then //co2低浓度标识未开始
+      begin
+        FWQBiliCO2 := -1;
+        //待确定比例
+        FWQBiliStart := GetTickCount();
+        //开始比例计算计时
+
+        if (nInt >= gWQCO2BeforePipe) and
+           (GetTickCountDiff(FWQZeroCO2Last) <= gWQIntervalBeforePipe) then
+        begin
+          Word2Item(nA3.FCO, 0);
+          Word2Item(nA3.FHC, 0);
+          Word2Item(nA3.FNO, 0);
+          
+          Result := True;
+          WriteLog(Format('%d.A3-插管后CO2浓度过低,已清零', [FLineNo]));
+        end;
+
+        if CheckShowWQ.Checked then ShowData();
+        Exit;
+      end else
+      begin
+        FWQZeroCO2Last := 0;
+        //浓度升高,计时关闭
+      end;
+
+      if GetTickCountDiff(FWQBiliStart) < gWQIntervalAfterPipe then
+      begin
+        //Word2Item(nA3.FCO2, 0);
+        Word2Item(nA3.FCO, Random(2));
+        Word2Item(nA3.FHC, Random(2));
+        Word2Item(nA3.FNO, Random(2));
+        //Word2Item(nA3.FO2, 2085 + Random(3));
+
+        if CheckShowWQ.Checked then ShowData();
+        Result := True;
+        Exit;
+      end else
+
+      if FWQBiliCO2 <= 0 then //无比例值,开始计算比例
+      begin
+        FWQBiliHC   := GetWQBili('HC', Item2Word(nA3.FHC), FLineNo);
+        FWQBiliNO   := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo);
+        FWQBiliCO   := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo);
+        FWQBiliCO2  := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo);
+        FWQBiliKRB  := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo);
+
+        FWQBiliHCNext := False;
+        FWQBiliNONext := False;
+        FWQBiliCONext := False;
+        FWQBiliCO2Next := False;
+        FWQBiliKRBNext := False;
+      end else
+      begin
+        if (not FWQBiliHCNext) and (gWQBiliNext.FHC > 0) and
+           (Item2Word(nA3.FHC) >= gWQBiliNext.FHC) then
+        begin
+          FWQBiliHCNext := True;
+          FWQBiliHC := GetWQBili('HC', Item2Word(nA3.FHC), FLineNo);
+        end;
+
+        if (not FWQBiliNONext) and (gWQBiliNext.FNO > 0) and
+           (Item2Word(nA3.FNO) >= gWQBiliNext.FNO) then
+        begin
+          FWQBiliNONext := True;
+          FWQBiliNO := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo);
+        end;
+
+        if (not FWQBiliCONext) and (gWQBiliNext.FCO > 0) and
+           (Item2Word(nA3.FCO) >= gWQBiliNext.FCO) then
+        begin
+          FWQBiliCONext := True;
+          FWQBiliCO := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo);
+        end;
+
+        if (not FWQBiliCO2Next) and (gWQBiliNext.FCO2 > 0) and
+           (Item2Word(nA3.FCO2) <= gWQBiliNext.FCO2) then
+        begin
+          FWQBiliCO2Next := True;
+          FWQBiliCO2 := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo);
+        end;
+
+        if (not FWQBiliKRBNext) and (gWQBiliNext.FKRB > 0) and
+           (Item2Word(nA3.FKRB) >= gWQBiliNext.FKRB) then
+        begin
+          FWQBiliKRBNext := True;
+          FWQBiliKRB := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo);
+        end;
+      end;
+
+      //------------------------------------------------------------------------
+      Word2Item(nA3.FCO, Trunc(Item2Word(nA3.FCO) * FWQBiliCO));
+      Word2Item(nA3.FHC, Trunc(Item2Word(nA3.FHC) * FWQBiliHC));
+      Word2Item(nA3.FNO, Trunc(Item2Word(nA3.FNO) * FWQBiliNO));
+
+      nInt := Item2Word(nA3.FCO2);
+      if nInt < 1400 then //CO2不足时补CO2
+      begin
+        nVal := nInt;
+        //old
+        nInt := Trunc(nInt * FWQBiliCO2);
+        //new
+        
+        if nInt > 1500 then
+             Word2Item(nA3.FCO2, 1470 + Random(30))
+        else Word2Item(nA3.FCO2, nInt);
+
+        if Item2Word(nA3.FO2) >= 300 then //反向降低O2,过低时不予校正
+        begin
+          nInt := Item2Word(nA3.FCO2);
+          if nVal < 1 then nVal := nInt;
+          Word2Item(nA3.FO2, Trunc(Item2Word(nA3.FO2) * (2 - nInt/nVal)));
+        end;
+
+        nInt := Trunc(Item2Word(nA3.FKRB) * FWQBiliKRB);
+        if nInt < 990 then  //下限0.99
+          nInt := 990 + Random(5);
+        Word2Item(nA3.FKRB, nInt);
+        //CO2变动时修正空燃比
+      end;
+
+      if CheckShowWQ.Checked then
+        ShowData();
+      Result := True;
+    end;
+    //--------------------------------------------------------------------------
+   8: //A8指令
+    begin
+      if CheckShowWQ.Checked then
+        nOA8 := nA8^;
+      //copy data
+
+      if FWQBiaoQiEnable then //抽标准气
+      begin
+        nInt := GetBiaoQi(FLineNo);
+        if nInt > -1 then
+        with gWQBiaoQi[nInt] do
+        begin
+          nVal :=  Item2Word(nA8.FHC);
+          if (nVal < FHC - FHC_WC) or (nVal > FHC + FHC_WC) then
+          begin
+            Word2Item(nA8.FHC,  FHC + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FNO);
+          if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
+          begin
+            Word2Item(nA8.FNO,  FNO + Random(5));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FNO2);
+          if (nVal < FNO2 - FNO2_WC) or (nVal > FNO2 + FNO2_WC) then
+          begin
+            Word2Item(nA8.FNO2,  FNO2 + Random(5));
+            Result := True;
+          end;
+
+          if Result then
+          begin
+            Word2Item(nA8.FNOx, Item2Word(nA8.FNO) + Item2Word(nA8.FNO2));
+            //combine
+          end;
+
+          nVal :=  Item2Word(nA8.FCO);
+          if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
+          begin
+            Word2Item(nA8.FCO,  FCO + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FCO2);
+          if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
+          begin
+            Word2Item(nA8.FCO2,  FCO2 + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FO2);
           if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
           begin
             Word2Item(nA8.FO2,  FO2 + Random(3));
