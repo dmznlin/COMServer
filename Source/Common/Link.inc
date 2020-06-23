@@ -5,3 +5,6 @@
 
 {.$DEFINE WQUseSimple}
 //尾气使用样本
+
+{.$DEFINE HideHintLabel}
+//隐藏界面HintLabel标签

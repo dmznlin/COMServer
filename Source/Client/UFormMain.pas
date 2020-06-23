@@ -4,6 +4,7 @@
 *******************************************************************************}
 unit UFormMain;
 
+{$I Link.Inc}
 interface
 
 uses
@@ -171,6 +172,14 @@ begin
 
   gSysLoger := TSysLoger.Create(gPath + 'Logs\');
   wPage.ActivePage := Sheet2;
+
+  {$IFDEF HideHintLabel}
+  HintLabel.Visible := False;
+  {$ENDIF}
+
+  {$IFNDEF WQUseSimple}
+  Sheet4.TabVisible := False;
+  {$ENDIF}
 
   LoadFormConfig;
   GetLocalIPConfig(gLocalName, nStr);

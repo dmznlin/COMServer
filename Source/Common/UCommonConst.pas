@@ -156,6 +156,21 @@ type
     FCO    : Integer;             //阀值: CO
     FCO2   : Integer;             //阀值: CO2
     FKRB   : Integer;             //阀值: 空燃比
+
+    FHC_Delay   : Integer;        //过渡延迟: HC
+    FNO_Delay   : Integer;        //过渡延迟: NO
+    FNO2_Delay  : Integer;        //过渡延迟: NO
+    FCO_Delay   : Integer;        //过渡延迟: CO
+    FCO2_Delay  : Integer;        //过渡延迟: CO2
+    FKRB_Delay  : Integer;        //过渡延迟: 空燃比
+  end;
+
+  TWQBiliItem = record
+    FBili: Double;                //当前比例
+    FBiliFirst: Double;           //一次比例
+    FBiliNext: Double;            //二次比例
+    FNextInc: Double;             //当前过渡至二次比例的增量
+    FNextInit: Cardinal;          //二次比例计时
   end;
 
   TCOMItem = record
@@ -215,18 +230,12 @@ type
                                   //尾气比例
     FWQZeroCO2Last: Cardinal;     //未插管计时
     FWQBiliStart: Cardinal;       //开始计算计时
-    FWQBiliHC: Double;            //比例: HC
-    FWQBiliHCNext: Boolean;
-    FWQBiliNO: Double;            //比例: NO
-    FWQBiliNONext: Boolean;
-    FWQBiliNO2: Double;           //比例: NO2
-    FWQBiliNO2Next: Boolean;
-    FWQBiliCO: Double;            //比例: CO
-    FWQBiliCONext: Boolean;
-    FWQBiliCO2: Double;           //比例: CO2
-    FWQBiliCO2Next: Boolean;
-    FWQBiliKRB: Double;           //比例: 空燃比
-    FWQBiliKRBNext: Boolean;
+    FWQBiliHC: TWQBiliItem;       //比例: HC
+    FWQBiliNO: TWQBiliItem;       //比例: NO
+    FWQBiliNO2: TWQBiliItem;      //比例: NO2
+    FWQBiliCO: TWQBiliItem;       //比例: CO
+    FWQBiliCO2: TWQBiliItem;      //比例: CO2
+    FWQBiliKRB: TWQBiliItem;      //比例: 空燃比
 
     FWQBiaoQiEnable: Boolean;     //标气检测
   end;
