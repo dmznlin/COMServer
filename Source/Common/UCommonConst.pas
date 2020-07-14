@@ -288,9 +288,11 @@ procedure Word2Item(var nItem: array of Char; const nWord: Word);
 //入口函数
 
 resourcestring
+  sProgID             = 'QL';
   sHint               = '提示';
   sConfig             = 'Config.Ini';
   sAutoStartKey       = 'COMServer';
+  sInvalidConfig      = '配置文件[ %s ]无效或已经损坏';
 
 implementation
 

@@ -370,6 +370,27 @@ begin
   nReg := nil;
   nList := nil;
   try
+    nStr := gPath + 'BiaoQi.ini';
+    if not IsValidConfigFile(nStr, sProgID) then
+    begin
+      ShowDlg(Format(sInvalidConfig, ['BiaoQi.ini']), sHint, GetDesktopWindow);
+      Exit;
+    end;
+
+    nStr := gPath + 'bili.ini';
+    if not IsValidConfigFile(nStr, sProgID) then
+    begin
+      ShowDlg(Format(sInvalidConfig, ['bili.ini']), sHint, GetDesktopWindow);
+      Exit;
+    end;
+
+    nStr := gPath + 'Ports.ini';
+    if not IsValidConfigFile(nStr, sProgID) then
+    begin
+      ShowDlg(Format(sInvalidConfig, ['Ports.ini']), sHint, GetDesktopWindow);
+      Exit;
+    end;
+
     nIni := TIniFile.Create(gPath + 'Config.ini');
     if IsSystemExpire(gPath + 'Lock.ini') then
     begin
@@ -1950,7 +1971,7 @@ begin
     //--------------------------------------------------------------------------
     if Time() < gWNTimeStart then
     begin
-      if Pos(cChar_WQ_JCQ_5105, FBuffer) > 0 then
+      if Pos(cChar_WQ_JCQ, FBuffer) > 0 then
       begin
         FWQBiaoQiEnable := True;
         WriteLog(Format('%d.开始通检查气', [FLineNo]));
@@ -2543,6 +2564,53 @@ begin
       if CheckShowWQ.Checked then
         nOA3 := nA3^;
       //copy data
+
+      if FWQBiaoQiEnable then //抽标准气
+      begin
+        nInt := GetBiaoQi(FLineNo);
+        if nInt > -1 then
+        with gWQBiaoQi[nInt] do
+        begin
+          nVal :=  Item2Word(nA3.FHC);
+          if (nVal < FHC - FHC_WC) or (nVal > FHC + FHC_WC) then
+          begin
+            Word2Item(nA3.FHC,  FHC + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FNO);
+          if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
+          begin
+            Word2Item(nA3.FNO,  FNO + Random(5));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FCO);
+          if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
+          begin
+            Word2Item(nA3.FCO,  FCO + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FCO2);
+          if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
+          begin
+            Word2Item(nA3.FCO2,  FCO2 + Random(3));
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FO2);
+          if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
+          begin
+            Word2Item(nA3.FO2,  FO2 + Random(3));
+            Result := True;
+          end;
+        end;
+
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
 
       nInt := Item2Word(nA3.FCO) + Item2Word(nA3.FCO2);
       if nInt < gWQCO2BeforePipe then
