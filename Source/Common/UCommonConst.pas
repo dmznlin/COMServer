@@ -279,6 +279,7 @@ var
 
   gWQBili: TWQBiliDataList;                 //尾气校正比例
   gWQBiliNext: TWQBiliNextLevel;            //调整新比例的阀值
+  gWQBiliBlack: TWQBiliDataList;            //尾气校正时黑名单比例
   gWQBiaoQi: TWQBiaoQiList;                 //标准气体
   gWNTimeStart,gWNTimeEnd: TDateTime;       //万能码开始结束时间
 

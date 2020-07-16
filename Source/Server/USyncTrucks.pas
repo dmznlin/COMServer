@@ -730,12 +730,6 @@ begin
       Exit;
     end;
 
-    if (Time() >= gWNTimeStart) and (Time() <= gWNTimeEnd) then
-    begin
-      Result := FindVIPTruck(MakeVIPTruck) >= 0;
-      if Result then Exit;
-    end;
-    
     for nIdx:=Low(FTrucks) to High(FTrucks) do
     with FTrucks[nIdx] do
     if FEnable and (FType = nType) and (FLine = nLine) then
@@ -755,9 +749,15 @@ begin
         if Assigned(nWQCheckType) then
          nWQCheckType^ := Ord(FCheckType);
         //xxxxx
-      end;
 
-      Exit;
+        Exit;
+      end;
+    end;
+
+    if (Time() >= gWNTimeStart) and (Time() <= gWNTimeEnd) then
+    begin
+      Result := FindVIPTruck(MakeVIPTruck) >= 0;
+      if Result then Exit;
     end;
   finally
     FSyncLock.Leave;

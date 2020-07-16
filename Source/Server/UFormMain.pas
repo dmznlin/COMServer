@@ -275,6 +275,56 @@ var nStr: string;
     end;
   end;
 
+  //Desc: 载入黑名单尾气计算比例
+  procedure LoadBlackWQBili(const nSection: string);
+  var nS: string;
+      nEnlarge: Double;
+      nIdx,nInt,nPos: Integer;
+  begin
+    nS := nSection + '_Black';
+    if not nIni.SectionExists(nS) then Exit;
+
+    nEnlarge := nIni.ReadFloat('Config', 'Enlarge' + nSection, 1);
+    //放大参数: 尾气仪整数值与化验报告数据的转换关系
+    nIni.ReadSection(nS, nList);
+    
+    nInt := Length(gWQBiliBlack);
+    SetLength(gWQBiliBlack, nInt + nList.Count);
+
+    for nIdx:=0 to nList.Count-1 do
+    with gWQBiliBlack[nInt] do
+    try
+      FType  := nSection;
+      FName  := nList[nIdx];
+      FBili  := 1;
+      FStart := 0;
+      FEnd   := 0;
+
+      nStr := nIni.ReadString(nS, FName, '');
+      nPos := Pos(',', nStr);
+      if nPos < 1 then Continue;
+
+      nS := Trim(Copy(nStr, nPos + 1, Length(nStr) - nPos));
+      if IsNumber(nS, True) then
+        FBili := StrToFloat(nS);
+      nStr := Copy(nStr, 1, nPos - 1);
+
+      nPos := Pos('-', nStr);
+      if nPos < 1 then Continue;
+      nS := Trim(Copy(nStr, 1, nPos - 1));
+      if IsNumber(nS, True) then
+        FStart := Trunc(StrToFloat(nS) * nEnlarge);
+      //xxxxxx
+
+      nS := Trim(Copy(nStr, nPos + 1, Length(nStr) - nPos));
+      if IsNumber(nS, True) then
+        FEnd := Trunc(StrToFloat(nS) * nEnlarge);
+      //xxxxx
+    finally
+      Inc(nInt);
+    end;
+  end;
+
   //Desc: 载入检测线标气值
   procedure LoadWQBiaoQi(const nLine: string);
   var nS: string;
@@ -465,6 +515,13 @@ begin
     LoadWQBili('CO');
     LoadWQBili('CO2');
     LoadWQBili('KRB');
+
+    LoadBlackWQBili('HC');
+    LoadBlackWQBili('NO');
+    LoadBlackWQBili('NO2');
+    LoadBlackWQBili('CO');
+    LoadBlackWQBili('CO2');
+    LoadBlackWQBili('KRB');
 
     //--------------------------------------------------------------------------
     nIni.Free;
@@ -1794,6 +1851,7 @@ end;
 procedure TfFormMain.ParseWQProtocol_5160(const nItem, nGroup: Integer);
 var nS,nE,nPos,nIdx: Integer;
     nHeadType: Integer;
+    nInBlack: Boolean;
 
     nData_A3: TWQData5160_A3;
     nData_A8: TWQData5160_A8;
@@ -1879,7 +1937,7 @@ begin
     end;
 
     if (nHeadType > 0) and (FWQBiaoQiEnable or
-        gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo)) then //VIP车辆参与校正
+        gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo, @nInBlack)) then //VIP车辆参与校正
     begin
       if nHeadType = 3 then //A3帧
       begin
@@ -1890,7 +1948,7 @@ begin
           nBuf_A3[nIdx] := FBuffer[nIdx + 1];
         Move(nBuf_A3, nData_A3, cSize_WQ_Data_A3); //复制到协议包,准备分析
 
-        if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A3, False) then
+        if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A3, nInBlack) then
         begin
           SetString(FBuffer, PChar(@nData_A3.FStart), cSize_WQ_Data_A3);
           FBuffer[cSize_WQ_Data_A3] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A3 - 1);
@@ -1907,7 +1965,7 @@ begin
           nBuf_A8[nIdx] := FBuffer[nIdx + 1];
         Move(nBuf_A8, nData_A8, cSize_WQ_Data_A8); //复制到协议包,准备分析
 
-        if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A8, False) then
+        if AdjustWQProtocol_5160(nItem, nGroup, nHeadType, @nData_A8, nInBlack) then
         begin
           SetString(FBuffer, PChar(@nData_A8.FStart), cSize_WQ_Data_A8);
           FBuffer[cSize_WQ_Data_A8] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A8 - 1);
@@ -1929,6 +1987,7 @@ end;
 procedure TfFormMain.ParseWQProtocol_5105(const nItem, nGroup: Integer);
 var nS,nE,nPos,nIdx: Integer;
     nHeadType: Integer;
+    nInBlack: Boolean;
 
     nData_A3: TWQData5160_A3;
     nData_A8: TWQData5160_A8;
@@ -2014,7 +2073,7 @@ begin
     end;
 
     if (nHeadType > 0) and (FWQBiaoQiEnable or
-        gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo)) then //VIP车辆参与校正
+        gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo, @nInBlack)) then //VIP车辆参与校正
     begin
       if nHeadType = 3 then //A3帧
       begin
@@ -2025,7 +2084,7 @@ begin
           nBuf_A3[nIdx] := FBuffer[nIdx + 1];
         Move(nBuf_A3, nData_A3, cSize_WQ_Data_A3); //复制到协议包,准备分析
 
-        if AdjustWQProtocol_5105(nItem, nGroup, nHeadType, @nData_A3, False) then
+        if AdjustWQProtocol_5105(nItem, nGroup, nHeadType, @nData_A3, nInBlack) then
         begin
           SetString(FBuffer, PChar(@nData_A3.FStart), cSize_WQ_Data_A3);
           FBuffer[cSize_WQ_Data_A3] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A3 - 1);
@@ -2042,7 +2101,7 @@ begin
           nBuf_A8[nIdx] := FBuffer[nIdx + 1];
         Move(nBuf_A8, nData_A8, cSize_WQ_Data_A8); //复制到协议包,准备分析
 
-        if AdjustWQProtocol_5105(nItem, nGroup, nHeadType, @nData_A8, False) then
+        if AdjustWQProtocol_5105(nItem, nGroup, nHeadType, @nData_A8, nInBlack) then
         begin
           SetString(FBuffer, PChar(@nData_A8.FStart), cSize_WQ_Data_A8);
           FBuffer[cSize_WQ_Data_A8] := MakeCRC(FBuffer, 1, cSize_WQ_Data_A8 - 1);
@@ -2475,10 +2534,25 @@ end;
 //Date: 2020-05-05
 //Parm: 检测类型;参考值
 //Desc: 获取指定类型的比例
-function GetWQBili(const nType: string; const nVal: Integer; const nLine: Integer): Double;
+function GetWQBili(const nType: string; const nVal: Integer;
+  const nLine: Integer; const nInBlack: Boolean = False): Double;
 var nIdx: Integer;
 begin
   Result := 1;
+  if nInBlack then
+  begin
+    for nIdx:=Low(gWQBiliBlack) to High(gWQBiliBlack) do
+     with gWQBiliBlack[nIdx] do
+      if (FType = nType) and (nVal >= FStart) and (nVal < FEnd) then
+      begin
+        Result := FBili;
+        WriteLog(Format('%d.黑名单: %s.%s - %f', [nLine, nType, FName, FBili]));
+        Break;
+      end;
+
+    Exit;
+  end;
+
   for nIdx:=Low(gWQBili) to High(gWQBili) do
    with gWQBili[nIdx] do
     if (FType = nType) and (nVal >= FStart) and (nVal < FEnd) then
@@ -2658,11 +2732,11 @@ begin
 
       if FWQBiliCO2.FBili <= 0 then //无比例值,开始计算比例
       begin
-        FWQBiliHC.FBili   := GetWQBili('HC', Item2Word(nA3.FHC), FLineNo);
-        FWQBiliNO.FBili   := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo);
-        FWQBiliCO.FBili   := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo);
-        FWQBiliCO2.FBili  := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo);
-        FWQBiliKRB.FBili  := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo);
+        FWQBiliHC.FBili   := GetWQBili('HC', Item2Word(nA3.FHC), FLineNo, nInBlack);
+        FWQBiliNO.FBili   := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo, nInBlack);
+        FWQBiliCO.FBili   := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo, nInBlack);
+        FWQBiliCO2.FBili  := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo, nInBlack);
+        FWQBiliKRB.FBili  := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo, nInBlack);
 
         FWQBiliHC.FBiliFirst := FWQBiliHC.FBili;
         FWQBiliNO.FBiliFirst := FWQBiliNO.FBili;
@@ -2682,7 +2756,7 @@ begin
         begin    
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('HC', Item2Word(nA3.FHC), FLineNo);
+          FBiliNext := GetWQBili('HC', Item2Word(nA3.FHC), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (gWQBiliNext.FHC_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / gWQBiliNext.FHC_Delay;
@@ -2694,7 +2768,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo);
+          FBiliNext := GetWQBili('NO', Item2Word(nA3.FNO), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (gWQBiliNext.FNO_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / gWQBiliNext.FNO_Delay;
@@ -2706,7 +2780,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo);
+          FBiliNext := GetWQBili('CO', Item2Word(nA3.FCO), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (gWQBiliNext.FCO_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / gWQBiliNext.FCO_Delay;
@@ -2718,7 +2792,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo);
+          FBiliNext := GetWQBili('CO2', Item2Word(nA3.FCO2), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (gWQBiliNext.FCO2_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / gWQBiliNext.FCO2_Delay;
@@ -2730,7 +2804,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo);
+          FBiliNext := GetWQBili('KRB', Item2Word(nA3.FKRB), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (gWQBiliNext.FKRB_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / gWQBiliNext.FKRB_Delay;
@@ -2948,12 +3022,12 @@ begin
 
       if FWQBiliCO2.FBili <= 0 then //无比例值,开始计算比例
       begin
-        FWQBiliHC.FBili   := GetWQBili('HC', Item2Word(nA8.FHC), FLineNo);
-        FWQBiliNO.FBili   := GetWQBili('NO', Item2Word(nA8.FNO), FLineNo);
-        FWQBiliNO2.FBili  := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo);
-        FWQBiliCO.FBili   := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo);
-        FWQBiliCO2.FBili  := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo);
-        FWQBiliKRB.FBili  := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo);
+        FWQBiliHC.FBili   := GetWQBili('HC', Item2Word(nA8.FHC), FLineNo, nInBlack);
+        FWQBiliNO.FBili   := GetWQBili('NO', Item2Word(nA8.FNO), FLineNo, nInBlack);
+        FWQBiliNO2.FBili  := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo, nInBlack);
+        FWQBiliCO.FBili   := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo, nInBlack);
+        FWQBiliCO2.FBili  := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo, nInBlack);
+        FWQBiliKRB.FBili  := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo, nInBlack);
 
         FWQBiliHC.FBiliFirst := FWQBiliHC.FBili;
         FWQBiliNO.FBiliFirst := FWQBiliNO.FBili;
@@ -2975,7 +3049,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('HC', Item2Word(nA8.FHC), FLineNo);
+          FBiliNext := GetWQBili('HC', Item2Word(nA8.FHC), FLineNo, nInBlack);
                                       
           if (FBiliNext > 0) and (FHC_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / FHC_Delay;
@@ -2987,7 +3061,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('NO', Item2Word(nA8.FNO), FLineNo);
+          FBiliNext := GetWQBili('NO', Item2Word(nA8.FNO), FLineNo, nInBlack);
                                       
           if (FBiliNext > 0) and (FNO_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / FNO_Delay;
@@ -2999,7 +3073,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo);
+          FBiliNext := GetWQBili('NO2', Item2Word(nA8.FNO2), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (FNO2_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / FNO2_Delay;
@@ -3011,7 +3085,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo);
+          FBiliNext := GetWQBili('CO', Item2Word(nA8.FCO), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (FCO_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / FCO_Delay;
@@ -3023,7 +3097,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo);
+          FBiliNext := GetWQBili('CO2', Item2Word(nA8.FCO2), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (FCO2_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / FCO2_Delay;
@@ -3035,7 +3109,7 @@ begin
         begin
           FNextInit := GetTickCount();
           FNextInc := 0;
-          FBiliNext := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo);
+          FBiliNext := GetWQBili('KRB', Item2Word(nA8.FKRB), FLineNo, nInBlack);
 
           if (FBiliNext > 0) and (FKRB_Delay > 0) then
             FNextInc := (FBiliNext - FBili) / FKRB_Delay;
