@@ -15,7 +15,7 @@ uses
 type
   TTruckItem = record
     FEnable: Boolean;          //是否有效
-    FType: TCOMType;           //业务类型
+    FJCType: TCOMType;         //检测业务
 
     FTruck: string;            //车牌号
     FLine: Integer;            //检测线
@@ -26,7 +26,7 @@ type
   TVIPType = (vtVIP, vtBlack); //vip,黑名单
   TVIPItem = record
     FTruck: string;            //车牌号
-    FType: TVIPType;           //类型
+    FVIPType: TVIPType;        //类型
     FSimple: string;           //检测样本序号
     FSTruck: string;           //检测样本车辆
   end;
@@ -179,7 +179,7 @@ begin
 
       if i >= 0 then
       begin
-        if FVIPTrucks[i].FType = vtBlack then
+        if FVIPTrucks[i].FVIPType = vtBlack then
              nStr := '黑名单'
         else nStr := 'VIP';
       end else nStr := '';
@@ -202,7 +202,7 @@ begin
     nList.Add(#13#10 + 'VIP车辆:');
     for nIdx:=Low(FVIPTrucks) to High(FVIPTrucks) do
     begin
-      if FVIPTrucks[nIdx].FType = vtBlack then
+      if FVIPTrucks[nIdx].FVIPType = vtBlack then
            nStr := '黑名单'
       else nStr := 'VIP';
 
@@ -500,8 +500,8 @@ begin
       begin
         FTruck  := Fields[0].AsString;
         if Fields[1].AsInteger = 0 then
-             FType := vtBlack
-        else FType := vtVIP;
+             FVIPType := vtBlack
+        else FVIPType := vtVIP;
 
         FSimple := Fields[2].AsString;
         FSTruck := Fields[3].AsString;
@@ -612,7 +612,7 @@ begin
       begin
         with FTempTrucks[nIdx] do
         begin
-          FType := ctWQ;
+          FJCType := ctWQ;
           FTruck := Trim(Fields[0].AsString);
           FLine := Fields[1].AsInteger;
 
@@ -653,7 +653,7 @@ begin
       begin
         with FTempTrucks[nIdx] do
         begin
-          FType := ctDD;
+          FJCType := ctDD;
           FTruck := Fields[0].AsString;
           FLine := Fields[1].AsInteger;
         end;
@@ -732,18 +732,18 @@ begin
 
     for nIdx:=Low(FTrucks) to High(FTrucks) do
     with FTrucks[nIdx] do
-    if FEnable and (FType = nType) and (FLine = nLine) then
+    if FEnable and (FJCType = nType) and (FLine = nLine) then
     begin
+      nTruck := FTruck;
+      //truck no
+
       i := FindVIPTruck(FTruck);
       Result := i >= 0;
 
       if Result then
       begin
-        nTruck := FTruck;
-        //truck no
-        
         if Assigned(nInBlack) then
-          nInBlack^ := FVIPTrucks[i].FType = vtBlack;
+          nInBlack^ := FVIPTrucks[i].FVIPType = vtBlack;
         //xxxxx
 
         if Assigned(nWQCheckType) then
@@ -805,7 +805,7 @@ begin
     nOnline := '';
     for nIdx:=Low(FTrucks) to High(FTrucks) do
     with FTrucks[nIdx] do
-    if FEnable and (FType = ctWQ) and (FLine = nLineNo) then
+    if FEnable and (FJCType = ctWQ) and (FLine = nLineNo) then
     begin
       nOnline := FTruck; //当前线上车辆
       Break;
@@ -936,7 +936,7 @@ begin
     nOnline := '';
     for nIdx:=Low(FTrucks) to High(FTrucks) do
     with FTrucks[nIdx] do
-    if FEnable and (FType = ctWQ) and (FLine = nLineNo) then
+    if FEnable and (FJCType = ctWQ) and (FLine = nLineNo) then
     begin
       nOnline := FTruck; //当前线上车辆
       Break;
