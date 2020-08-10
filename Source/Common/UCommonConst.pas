@@ -124,6 +124,7 @@ type
 
   TWQBiaoQi = record
     FLineNo : Integer;                //线号
+    //以下为低标气(检查气)
     FHC     : Integer;
     FHC_WC  : Integer;                //HC,误差
     FNO     : Integer;
@@ -136,6 +137,20 @@ type
     FCO2_WC : Integer;                //CO2,误差
     FO2     : Integer;
     FO2_WC  : Integer;                //O2,误差
+
+    //以下为高(High)标气
+    FHHC     : Integer;
+    FHHC_WC  : Integer;               //HC,误差
+    FHNO     : Integer;
+    FHNO_WC  : Integer;               //NO,误差
+    FHNO2    : Integer;
+    FHNO2_WC : Integer;               //NO2,误差
+    FHCO     : Integer;
+    FHCO_WC  : Integer;               //CO,误差
+    FHCO2    : Integer;
+    FHCO2_WC : Integer;               //CO2,误差
+    FHO2     : Integer;
+    FHO2_WC  : Integer;               //O2,误差
   end;
   TWQBiaoQiList = array of TWQBiaoQi;
 
@@ -238,6 +253,9 @@ type
     FWQBiliKRB: TWQBiliItem;      //比例: 空燃比
 
     FWQBiaoQiEnable: Boolean;     //标气检测
+    FWQHighBiaoQiEnable: Boolean; //高标气检测
+    FWQHighBiaoQiLJEnable: Boolean; //高标气拦截启动
+    FWQHighBiaoQiT10Enable: Boolean;//高标气T10检测
   end;
 
   PDataItem = ^TDataItem;

@@ -153,8 +153,12 @@ const
   cSize_WQ_Data_A8 = SizeOf(TWQData5160_A8);          //数据大小
 
   cChar_WQ_JCQ     = Char($06) + Char($7F) + Char($03) + Char($78); //通检查气
-  cChar_WQ_JCQ_5105= Char($06) + Char($7E) + Char($03) + Char($79); //通校准气
+  cChar_WQ_JZQ     = Char($06) + Char($7E) + Char($03) + Char($79); //通校准气
   cChar_WQ_JCQDone = Char($06) + Char($78) + Char($03) + Char($7F); //检查气结束
+
+  cChar_WQ_JZ      = Char($02) + Char($69) + Char($10);             //尾气校准
+  cChar_WQ_JZYD    = Char($06) + Char($69) + Char($03) + Char($8E); //校准应答
+  cChar_WQ_ChouQi  = Char($06) + Char($7B) + Char($03) + Char($7C); //启动仪器气泵抽取样气
 
   cAdj_KeepLong    = 6;                              //数据保持最大次数
   cAdj_Interval    = 1 * 1000 * 60;                  //校正数据有效期
@@ -345,51 +349,87 @@ var nStr: string;
       
       nEnlarge := nIni.ReadFloat('Config', 'EnlargeHC', 1);
       FHC := Trunc(nIni.ReadFloat(nLine, 'HC', 0) * nEnlarge);
-      nS := nIni.ReadString('WuCha', 'HC', '0');
-      
+      FHHC := Trunc(nIni.ReadFloat(nLine, 'H_HC', 0) * nEnlarge);
+
+      nS := nIni.ReadString('WuCha', 'HC', '0');      
       if IsNumber(nS, True) then
            FHC_WC := Trunc(StrToFloat(nS) * nEnlarge)
       else FHC_WC := 0;
 
+      nS := nIni.ReadString('WuCha', 'H_HC', '0');
+      if IsNumber(nS, True) then
+           FHHC_WC := Trunc(StrToFloat(nS) * nEnlarge)
+      else FHHC_WC := 0;
+
       nEnlarge := nIni.ReadFloat('Config', 'EnlargeNO', 1);
       FNO := Trunc(nIni.ReadFloat(nLine, 'NO', 0) * nEnlarge);
-      nS := nIni.ReadString('WuCha', 'NO', '0');
+      FHNO := Trunc(nIni.ReadFloat(nLine, 'H_NO', 0) * nEnlarge);
 
+      nS := nIni.ReadString('WuCha', 'NO', '0');
       if IsNumber(nS, True) then
            FNO_WC := Trunc(StrToFloat(nS) * nEnlarge)
       else FNO_WC := 0;
 
+      nS := nIni.ReadString('WuCha', 'H_NO', '0');
+      if IsNumber(nS, True) then
+           FHNO_WC := Trunc(StrToFloat(nS) * nEnlarge)
+      else FHNO_WC := 0;
+
       nEnlarge := nIni.ReadFloat('Config', 'EnlargeNO2', 1);
       FNO2 := Trunc(nIni.ReadFloat(nLine, 'NO2', 0) * nEnlarge);
-      nS := nIni.ReadString('WuCha', 'NO2', '0');
+      FHNO2 := Trunc(nIni.ReadFloat(nLine, 'H_NO2', 0) * nEnlarge);
 
+      nS := nIni.ReadString('WuCha', 'NO2', '0');
       if IsNumber(nS, True) then
            FNO2_WC := Trunc(StrToFloat(nS) * nEnlarge)
       else FNO2_WC := 0;
 
+      nS := nIni.ReadString('WuCha', 'H_NO2', '0');
+      if IsNumber(nS, True) then
+           FHNO2_WC := Trunc(StrToFloat(nS) * nEnlarge)
+      else FHNO2_WC := 0;
+
       nEnlarge := nIni.ReadFloat('Config', 'EnlargeCO', 1);
       FCO := Trunc(nIni.ReadFloat(nLine, 'CO', 0) * nEnlarge);
-      nS := nIni.ReadString('WuCha', 'CO', '0');
+      FHCO := Trunc(nIni.ReadFloat(nLine, 'H_CO', 0) * nEnlarge);
 
+      nS := nIni.ReadString('WuCha', 'CO', '0');
       if IsNumber(nS, True) then
            FCO_WC := Trunc(StrToFloat(nS) * nEnlarge)
       else FCO_WC := 0;
 
+      nS := nIni.ReadString('WuCha', 'H_CO', '0');
+      if IsNumber(nS, True) then
+           FHCO_WC := Trunc(StrToFloat(nS) * nEnlarge)
+      else FHCO_WC := 0;
+
       nEnlarge := nIni.ReadFloat('Config', 'EnlargeCO2', 1);
       FCO2 := Trunc(nIni.ReadFloat(nLine, 'CO2', 0) * nEnlarge);
+      FHCO2 := Trunc(nIni.ReadFloat(nLine, 'H_CO2', 0) * nEnlarge);
+
       nS := nIni.ReadString('WuCha', 'CO2', '0');
-      
       if IsNumber(nS, True) then
            FCO2_WC := Trunc(StrToFloat(nS) * nEnlarge)
       else FCO2_WC := 0;
 
+      nS := nIni.ReadString('WuCha', 'H_CO2', '0');
+      if IsNumber(nS, True) then
+           FHCO2_WC := Trunc(StrToFloat(nS) * nEnlarge)
+      else FHCO2_WC := 0;
+
       nEnlarge := nIni.ReadFloat('Config', 'EnlargeO2', 1);
       FO2 := Trunc(nIni.ReadFloat(nLine, 'O2', 0) * nEnlarge);
+      FHO2 := Trunc(nIni.ReadFloat(nLine, 'H_O2', 0) * nEnlarge);
+
       nS := nIni.ReadString('WuCha', 'O2', '0');
-      
       if IsNumber(nS, True) then
            FO2_WC := Trunc(StrToFloat(nS) * nEnlarge)
       else FO2_WC := 0;
+
+      nS := nIni.ReadString('WuCha', 'H_O2', '0');
+      if IsNumber(nS, True) then
+           FHO2_WC := Trunc(StrToFloat(nS) * nEnlarge)
+      else FHO2_WC := 0;
     end;
   end;
 begin
@@ -1009,10 +1049,13 @@ begin
       FWQStatusTime := 0;
       FWQZeroCO2Last := 0;
       FWQBiaoQiEnable := False;
+      FWQHighBiaoQiEnable := False;
+      FWQHighBiaoQiLJEnable := False;
+      FWQHighBiaoQiT10Enable := False;
+
       FGWDataIndex := 0;
       FGWDataIndexSDS := 0;
       FGWDataIndexTime := 0;
-
       FGWStatus := [];
       FGWDataLast := 0;
       SetLength(FGWDataList, 0);
@@ -1898,18 +1941,60 @@ begin
     //--------------------------------------------------------------------------
     if Time() < gWNTimeStart then
     begin
+      if Pos(cChar_WQ_JZ, FBuffer) > 0 then //尾气校准
+      begin
+        FCOMPorts[nGroup].FWQHighBiaoQiLJEnable := True;
+        FCOMPorts[nGroup].FWQHighBiaoQiT10Enable := False;
+        //打开尾气仪上行标记
+
+        RedirectData(nItem, nItem, cChar_WQ_JZYD);
+        //拦截尾气校准
+
+        WriteLog(Format('%d.拦截尾气校准', [FLineNo]));
+        Exit;
+      end;
+
+      if FWQHighBiaoQiLJEnable and (Pos(cChar_WQ_ChouQi, FBuffer) > 0) then
+      begin
+        FWQHighBiaoQiLJEnable := False;
+        FWQHighBiaoQiEnable := True;
+        FWQHighBiaoQiT10Enable := True;
+        WriteLog(Format('%d.校准气T10开始', [FLineNo]));
+      end;
+
       if Pos(cChar_WQ_JCQ, FBuffer) > 0 then
       begin
         FWQBiaoQiEnable := True;
         WriteLog(Format('%d.开始通检查气', [FLineNo]));
       end;
 
+      if Pos(cChar_WQ_JZQ, FBuffer) > 0 then
+      begin
+        FWQHighBiaoQiEnable := True;
+        WriteLog(Format('%d.开始通校准气', [FLineNo]));
+      end;
+
       if Pos(cChar_WQ_JCQDone, FBuffer) > 0 then
       begin
+        if FWQBiaoQiEnable then
+          WriteLog(Format('%d.通检查气结束', [FLineNo]));
+        //xxxxx
+
+        if FWQHighBiaoQiEnable then
+          WriteLog(Format('%d.通标准气结束', [FLineNo]));
+        //xxxxx
+
         FWQBiaoQiEnable := False;
-        WriteLog(Format('%d.通检查气结束', [FLineNo]));
+        FWQHighBiaoQiEnable := False;
+        FWQHighBiaoQiT10Enable := False;
       end;
-    end else FWQBiaoQiEnable := False;
+    end else
+    begin
+      FWQBiaoQiEnable := False;
+      FWQHighBiaoQiEnable := False;
+      FWQHighBiaoQiLJEnable := False;
+      FWQHighBiaoQiT10Enable := False;
+    end;
                             
     if ((Pos(cChar_WQ_Head_A3, FBuffer) < 1) and
         (Pos(cChar_WQ_Head_A8, FBuffer) < 1)) and (FData = '') then
@@ -1940,7 +2025,7 @@ begin
       end;
     end;
 
-    if (nHeadType > 0) and (FWQBiaoQiEnable or
+    if (nHeadType > 0) and (FWQBiaoQiEnable or FWQHighBiaoQiEnable or
         gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo, @nInBlack)) then //VIP车辆参与校正
     begin
       if nHeadType = 3 then //A3帧
@@ -2643,7 +2728,7 @@ begin
         nOA3 := nA3^;
       //copy data
 
-      if FWQBiaoQiEnable then //抽标准气
+      if FWQBiaoQiEnable then //抽低标准气
       begin
         nInt := GetBiaoQi(FLineNo);
         if nInt > -1 then
@@ -2681,6 +2766,73 @@ begin
           if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
           begin
             Word2Item(nA3.FO2,  FO2 + Random(3));
+            Result := True;
+          end;
+        end;
+
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      if FWQHighBiaoQiEnable then //抽高标准气
+      begin
+        nInt := GetBiaoQi(FLineNo);
+        if nInt > -1 then
+        with gWQBiaoQi[nInt] do
+        begin
+          nVal :=  Item2Word(nA3.FHC);
+          if (nVal < FHHC - FHHC_WC) or (nVal > FHHC + FHHC_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHHC * 0.1 + Random(3))
+            else nVal := FHHC + Random(3);
+
+            Word2Item(nA3.FHC,  nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FNO);
+          if (nVal < FHNO - FHNO_WC) or (nVal > FHNO + FHNO_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHNO * 0.1 + Random(5))
+            else nVal := FHNO + Random(5);
+
+            Word2Item(nA3.FNO,  nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FCO);
+          if (nVal < FHCO - FHCO_WC) or (nVal > FHCO + FHCO_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHCO * 0.1 + Random(3))
+            else nVal := FHCO + Random(3);
+
+            Word2Item(nA3.FCO, nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FCO2);
+          if (nVal < FHCO2 - FHCO2_WC) or (nVal > FHCO2 + FHCO2_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHCO2 * 0.1 + Random(3))
+            else nVal := FHCO2 + Random(3);
+
+            Word2Item(nA3.FCO2, nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA3.FO2);
+          if (nVal < FHO2 - FHO2_WC) or (nVal > FHO2 + FHO2_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHO2 * 0.1 + Random(3))
+            else nVal := FHO2 + Random(3);
+
+            Word2Item(nA3.FO2, nVal);
             Result := True;
           end;
         end;
@@ -2919,7 +3071,7 @@ begin
         nOA8 := nA8^;
       //copy data
 
-      if FWQBiaoQiEnable then //抽标准气
+      if FWQBiaoQiEnable then //抽低标准气
       begin
         nInt := GetBiaoQi(FLineNo);
         if nInt > -1 then
@@ -2970,6 +3122,90 @@ begin
           if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
           begin
             Word2Item(nA8.FO2,  FO2 + Random(3));
+            Result := True;
+          end;
+        end;
+
+        if CheckShowWQ.Checked then
+          ShowData();
+        Exit;
+      end;
+
+      if FWQHighBiaoQiEnable then //抽高标准气
+      begin
+        nInt := GetBiaoQi(FLineNo);
+        if nInt > -1 then
+        with gWQBiaoQi[nInt] do
+        begin
+          nVal :=  Item2Word(nA8.FHC);
+          if (nVal < FHHC - FHHC_WC) or (nVal > FHHC + FHHC_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHHC * 0.1 + Random(3))
+            else nVal := FHHC + Random(3);
+
+            Word2Item(nA8.FHC, nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FNO);
+          if (nVal < FHNO - FHNO_WC) or (nVal > FHNO + FHNO_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHNO * 0.1 + Random(5))
+            else nVal := FHNO + Random(5);
+
+            Word2Item(nA8.FNO, nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FNO2);
+          if (nVal < FHNO2 - FHNO2_WC) or (nVal > FHNO2 + FHNO2_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHNO2 * 0.1 + Random(5))
+            else nVal := FHNO2 + Random(5);
+
+            Word2Item(nA8.FNO2, nVal);
+            Result := True;
+          end;
+
+          if Result then
+          begin
+            Word2Item(nA8.FNOx, Item2Word(nA8.FNO) + Item2Word(nA8.FNO2));
+            //combine
+          end;
+
+          nVal :=  Item2Word(nA8.FCO);
+          if (nVal < FHCO - FHCO_WC) or (nVal > FHCO + FHCO_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHCO * 0.1 + Random(3))
+            else nVal := FHCO + Random(3);
+
+            Word2Item(nA8.FCO, nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FCO2);
+          if (nVal < FHCO2 - FHCO2_WC) or (nVal > FHCO2 + FHCO2_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHCO2 * 0.1 + Random(3))
+            else nVal := FHCO2 + Random(3);
+
+            Word2Item(nA8.FCO2, nVal);
+            Result := True;
+          end;
+
+          nVal :=  Item2Word(nA8.FO2);
+          if (nVal < FHO2 - FHO2_WC) or (nVal > FHO2 + FHO2_WC) then
+          begin
+            if FWQHighBiaoQiT10Enable then
+                 nVal := Trunc(FHO2 * 0.1 + Random(3))
+            else nVal := FHO2 + Random(3);
+
+            Word2Item(nA8.FO2, nVal);
             Result := True;
           end;
         end;
