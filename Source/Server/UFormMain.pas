@@ -570,10 +570,14 @@ begin
     //--------------------------------------------------------------------------
     nIni.Free;
     nIni := TIniFile.Create(gPath + 'BiaoQi.ini');
+    gWQDelayBiaoQi := nIni.ReadInteger('Config', 'DelayForBiaoQi', 0);
+    gWQDelayHighBiaoQi := nIni.ReadInteger('Config', 'DelayForHighBiaoQi', 0);
+    gWQDelayHighBiaoQiT10 := nIni.ReadInteger('Config', 'DelayForHighBiaoQiT10', 0);
+                                                  
     nStr := nIni.ReadString('Config', 'Lines', '');
     SplitStr(nStr, nList, 0, ',');
-
     SetLength(gWQBiaoQi, 0);
+
     for nIdx:=0 to nList.Count-1 do
       LoadWQBiaoQi(nList[nIdx]);
     //读取特定线号标气
@@ -1958,19 +1962,23 @@ begin
       begin
         FWQHighBiaoQiLJEnable := False;
         FWQHighBiaoQiEnable := True;
+
         FWQHighBiaoQiT10Enable := True;
+        FWQHighBiaoQiT10Init := GetTickCount();
         WriteLog(Format('%d.校准气T10开始', [FLineNo]));
       end;
 
       if Pos(cChar_WQ_JCQ, FBuffer) > 0 then
       begin
         FWQBiaoQiEnable := True;
+        FWQBiaoQiInit := GetTickCount();
         WriteLog(Format('%d.开始通检查气', [FLineNo]));
       end;
 
       if Pos(cChar_WQ_JZQ, FBuffer) > 0 then
       begin
         FWQHighBiaoQiEnable := True;
+        FWQHighBiaoQiInit := GetTickCount();
         WriteLog(Format('%d.开始通校准气', [FLineNo]));
       end;
 
@@ -1986,6 +1994,7 @@ begin
 
         FWQBiaoQiEnable := False;
         FWQHighBiaoQiEnable := False;
+        FWQHighBiaoQiLJEnable := False;
         FWQHighBiaoQiT10Enable := False;
       end;
     end else
@@ -2660,6 +2669,7 @@ function TfFormMain.AdjustWQProtocol_5160(const nItem, nGroup,
   const nInBlack: Boolean): Boolean;
 var nStr: string;
     nDiff: Int64;
+    nBili: Double;
     nInt,nVal: Integer;
     nA3: PWQData5160_A3;
     nA8: PWQData5160_A8;
@@ -2730,6 +2740,11 @@ begin
 
       if FWQBiaoQiEnable then //抽低标准气
       begin
+        nDiff := GetTickCountDiff(FWQBiaoQiInit);
+        if (gWQDelayBiaoQi <= 0) or (nDiff >= gWQDelayBiaoQi) then
+             nBili := 1
+        else nBili := nDiff / gWQDelayBiaoQi;
+
         nInt := GetBiaoQi(FLineNo);
         if nInt > -1 then
         with gWQBiaoQi[nInt] do
@@ -2737,35 +2752,35 @@ begin
           nVal :=  Item2Word(nA3.FHC);
           if (nVal < FHC - FHC_WC) or (nVal > FHC + FHC_WC) then
           begin
-            Word2Item(nA3.FHC,  FHC + Random(3));
+            Word2Item(nA3.FHC, Trunc((FHC + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FNO);
           if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
           begin
-            Word2Item(nA3.FNO,  FNO + Random(5));
+            Word2Item(nA3.FNO, Trunc((FNO + Random(5)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FCO);
           if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
           begin
-            Word2Item(nA3.FCO,  FCO + Random(3));
+            Word2Item(nA3.FCO, Trunc((FCO + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FCO2);
           if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
           begin
-            Word2Item(nA3.FCO2,  FCO2 + Random(3));
+            Word2Item(nA3.FCO2, Trunc((FCO2 + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FO2);
           if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
           begin
-            Word2Item(nA3.FO2,  FO2 + Random(3));
+            Word2Item(nA3.FO2, Trunc((FO2 + Random(3)) * nBili));
             Result := True;
           end;
         end;
@@ -2777,6 +2792,20 @@ begin
 
       if FWQHighBiaoQiEnable then //抽高标准气
       begin
+        if FWQHighBiaoQiT10Enable then
+        begin
+          nDiff := GetTickCountDiff(FWQHighBiaoQiT10Init);
+          if (gWQDelayHighBiaoQiT10 <= 0) or (nDiff >= gWQDelayHighBiaoQiT10) then
+               nBili := 0
+          else nBili := 1 - nDiff / gWQDelayHighBiaoQiT10;
+        end else
+        begin
+          nDiff := GetTickCountDiff(FWQHighBiaoQiInit);
+          if (gWQDelayHighBiaoQi <= 0) or (nDiff >= gWQDelayHighBiaoQi) then
+               nBili := 1
+          else nBili := nDiff / gWQDelayHighBiaoQi;
+        end;
+
         nInt := GetBiaoQi(FLineNo);
         if nInt > -1 then
         with gWQBiaoQi[nInt] do
@@ -2784,44 +2813,28 @@ begin
           nVal :=  Item2Word(nA3.FHC);
           if (nVal < FHHC - FHHC_WC) or (nVal > FHHC + FHHC_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHHC * 0.1 + Random(3))
-            else nVal := FHHC + Random(3);
-
-            Word2Item(nA3.FHC,  nVal);
+            Word2Item(nA3.FHC, Trunc((FHHC + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FNO);
           if (nVal < FHNO - FHNO_WC) or (nVal > FHNO + FHNO_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHNO * 0.1 + Random(5))
-            else nVal := FHNO + Random(5);
-
-            Word2Item(nA3.FNO,  nVal);
+            Word2Item(nA3.FNO, Trunc((FHNO + Random(5)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FCO);
           if (nVal < FHCO - FHCO_WC) or (nVal > FHCO + FHCO_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHCO * 0.1 + Random(3))
-            else nVal := FHCO + Random(3);
-
-            Word2Item(nA3.FCO, nVal);
+            Word2Item(nA3.FCO, Trunc((FHCO + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA3.FCO2);
           if (nVal < FHCO2 - FHCO2_WC) or (nVal > FHCO2 + FHCO2_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHCO2 * 0.1 + Random(3))
-            else nVal := FHCO2 + Random(3);
-
-            Word2Item(nA3.FCO2, nVal);
+            Word2Item(nA3.FCO2, Trunc((FHCO2 + Random(3)) * nBili));
             Result := True;
           end;
 
@@ -2829,8 +2842,8 @@ begin
           if (nVal < FHO2 - FHO2_WC) or (nVal > FHO2 + FHO2_WC) then
           begin
             if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHO2 * 0.1 + Random(3))
-            else nVal := FHO2 + Random(3);
+                 nVal := Trunc((2080 + Random(10)) * (1 - nBili)) //氧气补偿
+            else nVal := Trunc((FHO2 + Random(3)) * nBili);
 
             Word2Item(nA3.FO2, nVal);
             Result := True;
@@ -3073,6 +3086,11 @@ begin
 
       if FWQBiaoQiEnable then //抽低标准气
       begin
+        nDiff := GetTickCountDiff(FWQBiaoQiInit);
+        if (gWQDelayBiaoQi <= 0) or (nDiff >= gWQDelayBiaoQi) then
+             nBili := 1
+        else nBili := nDiff / gWQDelayBiaoQi;
+        
         nInt := GetBiaoQi(FLineNo);
         if nInt > -1 then
         with gWQBiaoQi[nInt] do
@@ -3080,21 +3098,21 @@ begin
           nVal :=  Item2Word(nA8.FHC);
           if (nVal < FHC - FHC_WC) or (nVal > FHC + FHC_WC) then
           begin
-            Word2Item(nA8.FHC,  FHC + Random(3));
+            Word2Item(nA8.FHC, Trunc((FHC + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FNO);
           if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
           begin
-            Word2Item(nA8.FNO,  FNO + Random(5));
+            Word2Item(nA8.FNO, Trunc((FNO + Random(5)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FNO2);
           if (nVal < FNO2 - FNO2_WC) or (nVal > FNO2 + FNO2_WC) then
           begin
-            Word2Item(nA8.FNO2,  FNO2 + Random(5));
+            Word2Item(nA8.FNO2, Trunc((FNO2 + Random(5)) * nBili));
             Result := True;
           end;
 
@@ -3107,21 +3125,21 @@ begin
           nVal :=  Item2Word(nA8.FCO);
           if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
           begin
-            Word2Item(nA8.FCO,  FCO + Random(3));
+            Word2Item(nA8.FCO, Trunc((FCO + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FCO2);
           if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
           begin
-            Word2Item(nA8.FCO2,  FCO2 + Random(3));
+            Word2Item(nA8.FCO2, Trunc((FCO2 + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FO2);
           if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
           begin
-            Word2Item(nA8.FO2,  FO2 + Random(3));
+            Word2Item(nA8.FO2, Trunc((FO2 + Random(3)) * nBili));
             Result := True;
           end;
         end;
@@ -3133,6 +3151,20 @@ begin
 
       if FWQHighBiaoQiEnable then //抽高标准气
       begin
+        if FWQHighBiaoQiT10Enable then
+        begin
+          nDiff := GetTickCountDiff(FWQHighBiaoQiT10Init);
+          if (gWQDelayHighBiaoQiT10 <= 0) or (nDiff >= gWQDelayHighBiaoQiT10) then
+               nBili := 0
+          else nBili := 1 - nDiff / gWQDelayHighBiaoQiT10;
+        end else
+        begin
+          nDiff := GetTickCountDiff(FWQHighBiaoQiInit);
+          if (gWQDelayHighBiaoQi <= 0) or (nDiff >= gWQDelayHighBiaoQi) then
+               nBili := 1
+          else nBili := nDiff / gWQDelayHighBiaoQi;
+        end;
+        
         nInt := GetBiaoQi(FLineNo);
         if nInt > -1 then
         with gWQBiaoQi[nInt] do
@@ -3140,33 +3172,21 @@ begin
           nVal :=  Item2Word(nA8.FHC);
           if (nVal < FHHC - FHHC_WC) or (nVal > FHHC + FHHC_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHHC * 0.1 + Random(3))
-            else nVal := FHHC + Random(3);
-
-            Word2Item(nA8.FHC, nVal);
+            Word2Item(nA8.FHC, Trunc((FHHC + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FNO);
           if (nVal < FHNO - FHNO_WC) or (nVal > FHNO + FHNO_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHNO * 0.1 + Random(5))
-            else nVal := FHNO + Random(5);
-
-            Word2Item(nA8.FNO, nVal);
+            Word2Item(nA8.FNO, Trunc((FHNO + Random(5)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FNO2);
           if (nVal < FHNO2 - FHNO2_WC) or (nVal > FHNO2 + FHNO2_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHNO2 * 0.1 + Random(5))
-            else nVal := FHNO2 + Random(5);
-
-            Word2Item(nA8.FNO2, nVal);
+            Word2Item(nA8.FNO2, Trunc((FHNO2 + Random(5)) * nBili));
             Result := True;
           end;
 
@@ -3179,22 +3199,14 @@ begin
           nVal :=  Item2Word(nA8.FCO);
           if (nVal < FHCO - FHCO_WC) or (nVal > FHCO + FHCO_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHCO * 0.1 + Random(3))
-            else nVal := FHCO + Random(3);
-
-            Word2Item(nA8.FCO, nVal);
+            Word2Item(nA8.FCO, Trunc((FHCO + Random(3)) * nBili));
             Result := True;
           end;
 
           nVal :=  Item2Word(nA8.FCO2);
           if (nVal < FHCO2 - FHCO2_WC) or (nVal > FHCO2 + FHCO2_WC) then
           begin
-            if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHCO2 * 0.1 + Random(3))
-            else nVal := FHCO2 + Random(3);
-
-            Word2Item(nA8.FCO2, nVal);
+            Word2Item(nA8.FCO2, Trunc((FHCO2 + Random(3)) * nBili));
             Result := True;
           end;
 
@@ -3202,8 +3214,8 @@ begin
           if (nVal < FHO2 - FHO2_WC) or (nVal > FHO2 + FHO2_WC) then
           begin
             if FWQHighBiaoQiT10Enable then
-                 nVal := Trunc(FHO2 * 0.1 + Random(3))
-            else nVal := FHO2 + Random(3);
+                 nVal := Trunc((2080 + Random(10)) * (1 - nBili)) //氧气补偿
+            else nVal := Trunc((FHO2 + Random(3)) * nBili);
 
             Word2Item(nA8.FO2, nVal);
             Result := True;

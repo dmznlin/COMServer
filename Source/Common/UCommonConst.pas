@@ -253,9 +253,12 @@ type
     FWQBiliKRB: TWQBiliItem;      //比例: 空燃比
 
     FWQBiaoQiEnable: Boolean;     //标气检测
+    FWQBiaoQiInit: Int64;         //标汽检测开始计时
     FWQHighBiaoQiEnable: Boolean; //高标气检测
+    FWQHighBiaoQiInit: Int64;     //高标气检测开始计时
     FWQHighBiaoQiLJEnable: Boolean; //高标气拦截启动
     FWQHighBiaoQiT10Enable: Boolean;//高标气T10检测
+    FWQHighBiaoQiT10Init: Int64;  //高标气T10检测开始计时
   end;
 
   PDataItem = ^TDataItem;
@@ -299,6 +302,9 @@ var
   gWQBiliNext: TWQBiliNextLevel;            //调整新比例的阀值
   gWQBiliBlack: TWQBiliDataList;            //尾气校正时黑名单比例
   gWQBiaoQi: TWQBiaoQiList;                 //标准气体
+  gWQDelayBiaoQi: Integer;                  //低标气(检查气)从0到标准值需要的时长
+  gWQDelayHighBiaoQi: Integer;              //高标气(标准气)从0到标准值需要的时长
+  gWQDelayHighBiaoQiT10: Integer;           //高标气(标准气)从标准值降到0需要的时长
   gWNTimeStart,gWNTimeEnd: TDateTime;       //万能码开始结束时间
 
 function MonStatusToStr(const nStatus: TMonStatusItem): string;
