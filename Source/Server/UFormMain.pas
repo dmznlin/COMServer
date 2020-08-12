@@ -1977,6 +1977,7 @@ begin
 
       if Pos(cChar_WQ_JZQ, FBuffer) > 0 then
       begin
+        FWQHighBiaoQiT10Enable := False;
         FWQHighBiaoQiEnable := True;
         FWQHighBiaoQiInit := GetTickCount();
         WriteLog(Format('%d.开始通校准气', [FLineNo]));
