@@ -2,7 +2,7 @@ object fFormMain: TfFormMain
   Left = 552
   Top = 219
   Width = 954
-  Height = 703
+  Height = 699
   BorderIcons = [biSystemMenu, biMinimize]
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,7 +19,7 @@ object fFormMain: TfFormMain
     Left = 165
     Top = 80
     Width = 2
-    Height = 565
+    Height = 561
     Align = alLeft
     Shape = bsSpacer
   end
@@ -27,14 +27,14 @@ object fFormMain: TfFormMain
     Left = 167
     Top = 80
     Width = 771
-    Height = 565
+    Height = 561
     Align = alClient
     ScrollBars = ssBoth
     TabOrder = 0
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 645
+    Top = 641
     Width = 938
     Height = 19
     Panels = <>
@@ -43,7 +43,7 @@ object fFormMain: TfFormMain
     Left = 0
     Top = 80
     Width = 165
-    Height = 565
+    Height = 561
     Align = alLeft
     ActiveGroupIndex = 0
     TabOrder = 2
@@ -234,11 +234,11 @@ object fFormMain: TfFormMain
       Left = 0
       Top = 380
       Width = 165
-      Height = 165
+      Height = 175
       TabOrder = 3
       UseStyle = True
       GroupIndex = 2
-      OriginalHeight = 165
+      OriginalHeight = 175
       object ComboGQ: TcxComboBox
         Left = 20
         Top = 26
@@ -256,13 +256,13 @@ object fFormMain: TfFormMain
       end
       object Label1: TcxLabel
         Left = 20
-        Top = 55
+        Top = 87
         Caption = #19975#33021#30721#24320#22987#26102#38388':'
         Transparent = True
       end
       object EditTimeStart: TcxTimeEdit
         Left = 20
-        Top = 75
+        Top = 105
         EditValue = 0d
         Properties.OnChange = EditTimeEndPropertiesChange
         TabOrder = 3
@@ -270,16 +270,31 @@ object fFormMain: TfFormMain
       end
       object Label2: TcxLabel
         Left = 20
-        Top = 100
+        Top = 127
         Caption = #19975#33021#30721#20851#38381#26102#38388':'
         Transparent = True
       end
       object EditTimeEnd: TcxTimeEdit
         Left = 20
-        Top = 120
+        Top = 145
         EditValue = 0d
         Properties.OnChange = EditTimeEndPropertiesChange
         TabOrder = 5
+        Width = 112
+      end
+      object Label3: TcxLabel
+        Left = 20
+        Top = 48
+        Caption = #36828#20809#24378#24230#19978#38480':'
+        Transparent = True
+      end
+      object ComboGQMax: TcxComboBox
+        Left = 20
+        Top = 66
+        Properties.DropDownListStyle = lsFixedList
+        Properties.ItemHeight = 20
+        Properties.OnChange = ComboGQMaxPropertiesChange
+        TabOrder = 7
         Width = 112
       end
     end

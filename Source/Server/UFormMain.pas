@@ -54,6 +54,8 @@ type
     EditTimeStart: TcxTimeEdit;
     Label2: TcxLabel;
     EditTimeEnd: TcxTimeEdit;
+    Label3: TcxLabel;
+    ComboGQMax: TcxComboBox;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Timer1Timer(Sender: TObject);
@@ -68,6 +70,7 @@ type
     procedure Timer2Timer(Sender: TObject);
     procedure BtnOnlineClick(Sender: TObject);
     procedure EditTimeEndPropertiesChange(Sender: TObject);
+    procedure ComboGQMaxPropertiesChange(Sender: TObject);
   private
     { Private declarations }
     FTrayIcon: TTrayIcon;
@@ -75,6 +78,7 @@ type
     FSyncLock: TCriticalSection;
     //同步锁定
     FYGMinValue: Integer;
+    FYGMaxValue: Integer;
     //远光强度
     FUserPasswd: string;
     //用户密码
@@ -157,6 +161,7 @@ const
   cChar_WQ_JCQDone = Char($06) + Char($78) + Char($03) + Char($7F); //检查气结束
 
   cChar_WQ_JZ      = Char($02) + Char($69) + Char($10);             //尾气校准
+  cChar_WQ_JZ_5105 = Char($02) + Char($69) + Char($0E);             //尾气校准
   cChar_WQ_JZYD    = Char($06) + Char($69) + Char($03) + Char($8E); //校准应答
   cChar_WQ_ChouQi  = Char($06) + Char($7B) + Char($03) + Char($7C); //启动仪器气泵抽取样气
 
@@ -505,6 +510,7 @@ begin
     CheckGQ.Checked := nIni.ReadBool('Config', 'CloseGQ', False);
     FUserPasswd := nIni.ReadString('Config', 'UserPassword', 'admin');
     FYGMinValue := nIni.ReadInteger('Config', 'YGMinValue', 5000);
+    FYGMaxValue := nIni.ReadInteger('Config', 'YGMaxValue', 30000);
     //远光强度下限
 
     EditTimeStart.Time := nIni.ReadTime('Config', 'WNTimeStart', Str2Time('00:00:00'));
@@ -522,6 +528,21 @@ begin
       if Properties.Items.IndexOf(nStr) < 0 then
         Properties.Items.Add(nStr);
       ComboGQ.Text := nStr;
+
+      if ItemIndex < 0 then
+        ItemIndex := 0;
+      //xxxxx
+    end;
+
+    with ComboGQMax do
+    begin
+      nStr := nIni.ReadString('Config', 'YGMaxValueList', '');
+      SplitStr(nStr, Properties.Items, 0, ',');
+      nStr := IntToStr(FYGMaxValue);
+
+      if Properties.Items.IndexOf(nStr) < 0 then
+        Properties.Items.Add(nStr);
+      ComboGQMax.Text := nStr;
 
       if ItemIndex < 0 then
         ItemIndex := 0;
@@ -820,6 +841,13 @@ procedure TfFormMain.ComboGQPropertiesChange(Sender: TObject);
 begin
   if ComboGQ.Focused then
     FYGMinValue := StrToInt(ComboGQ.Text);
+  //xxxxx
+end;
+
+procedure TfFormMain.ComboGQMaxPropertiesChange(Sender: TObject);
+begin
+  if ComboGQMax.Focused then
+    FYGMaxValue := StrToInt(ComboGQMax.Text);
   //xxxxx
 end;
 
@@ -1437,6 +1465,30 @@ begin
     end;
     Result := True;
   end; //灯光强度补偿
+
+  if (not CheckGQ.Checked) and (nDQ >= FYGMaxValue / 100) then
+  begin
+    nDQ := 250 + Random(40);    //250 - 290
+    nSVal := FloatToStr(nDQ);
+
+    nInt := Length(nData.Fyi) - Length(nSVal);
+    if nInt > 0 then
+      nSVal := StringOfChar('0', nInt) + nSVal;
+    //xxxxx
+
+    nInt := Length(nData.Fyi);
+    nStr := Format('灯光削减:[ %s -> %s ]', [Copy(nData.Fyi, 1, nInt),
+                                             Copy(nSVal, 1, nInt)]);
+    WriteLog(nStr);
+
+    nInt := 1;
+    for nIdx:=Low(nData.Fyi) to High(nData.Fyi) do
+    begin
+      nData.Fyi[nIdx] := nSVal[nInt];
+      Inc(nInt);
+    end;
+    Result := True;
+  end; //灯光强度削减
 
   if Result or CheckDetail.Checked then
   begin
@@ -2129,18 +2181,66 @@ begin
     //--------------------------------------------------------------------------
     if Time() < gWNTimeStart then
     begin
+      if Pos(cChar_WQ_JZ_5105, FBuffer) > 0 then //尾气校准
+      begin
+        FCOMPorts[nGroup].FWQHighBiaoQiLJEnable := True;
+        FCOMPorts[nGroup].FWQHighBiaoQiT10Enable := False;
+        //打开尾气仪上行标记
+
+        RedirectData(nItem, nItem, cChar_WQ_JZYD);
+        //拦截尾气校准
+
+        WriteLog(Format('%d.拦截尾气校准', [FLineNo]));
+        Exit;
+      end;
+
+      if FWQHighBiaoQiLJEnable and (Pos(cChar_WQ_ChouQi, FBuffer) > 0) then
+      begin
+        FWQHighBiaoQiLJEnable := False;
+        FWQHighBiaoQiEnable := True;
+
+        FWQHighBiaoQiT10Enable := True;
+        FWQHighBiaoQiT10Init := GetTickCount();
+        WriteLog(Format('%d.校准气T10开始', [FLineNo]));
+      end;
+
       if Pos(cChar_WQ_JCQ, FBuffer) > 0 then
       begin
         FWQBiaoQiEnable := True;
+        FWQBiaoQiInit := GetTickCount();
         WriteLog(Format('%d.开始通检查气', [FLineNo]));
+      end;
+
+      if Pos(cChar_WQ_JZQ, FBuffer) > 0 then
+      begin
+        FWQHighBiaoQiT10Enable := False;
+        FWQHighBiaoQiEnable := True;
+        FWQHighBiaoQiInit := GetTickCount();
+        WriteLog(Format('%d.开始通校准气', [FLineNo]));
       end;
 
       if Pos(cChar_WQ_JCQDone, FBuffer) > 0 then
       begin
+        if FWQBiaoQiEnable then
+          WriteLog(Format('%d.通检查气结束', [FLineNo]));
+        //xxxxx
+
+        if FWQHighBiaoQiEnable then
+          WriteLog(Format('%d.通标准气结束', [FLineNo]));
+        //xxxxx
+
         FWQBiaoQiEnable := False;
-        WriteLog(Format('%d.通检查气结束', [FLineNo]));
+        FWQHighBiaoQiEnable := False;
+        FWQHighBiaoQiLJEnable := False;
+        FWQHighBiaoQiT10Enable := False;
       end;
-    end else FWQBiaoQiEnable := False;
+    end else
+    begin
+      FWQBiaoQiEnable := False;
+      FWQHighBiaoQiEnable := False;
+      FWQHighBiaoQiLJEnable := False;
+      FWQHighBiaoQiT10Enable := False;
+    end;
                             
     if ((Pos(cChar_WQ_Head_A3, FBuffer) < 1) and
         (Pos(cChar_WQ_Head_A8, FBuffer) < 1)) and (FData = '') then
@@ -2171,7 +2271,7 @@ begin
       end;
     end;
 
-    if (nHeadType > 0) and (FWQBiaoQiEnable or
+    if (nHeadType > 0) and (FWQBiaoQiEnable or FWQHighBiaoQiEnable or
         gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo, @nInBlack)) then //VIP车辆参与校正
     begin
       if nHeadType = 3 then //A3帧
