@@ -8,3 +8,6 @@
 
 {.$DEFINE HideHintLabel}
 //隐藏界面HintLabel标签
+
+{.$DEFINE SimpleClient}
+//简化版客户端

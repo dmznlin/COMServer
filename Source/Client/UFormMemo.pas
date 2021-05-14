@@ -1,5 +1,6 @@
 unit UFormMemo;
 
+{$I Link.Inc}
 interface
 
 uses
@@ -37,7 +38,6 @@ type
     { Private declarations }
     FTrucks: TStrings;
     procedure LoadSimples(const nType: TWQCheckType; const nTruck: string='');
-    procedure GetValidTrucks;
   public
     { Public declarations }
   end;
@@ -65,6 +65,10 @@ procedure TfFormMemo.FormCreate(Sender: TObject);
 begin
   FTrucks := TSTringList.Create;
   LoadFormConfig(Self);
+
+  {$IFDEF SimpleClient}
+  BtnOK.Enabled := not IsSystemExpire(gPath + 'Lock.ini');
+  {$ENDIF}
 end;
 
 procedure TfFormMemo.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -130,35 +134,6 @@ begin
   end;
 end;
 
-procedure TfFormMemo.GetValidTrucks;
-var nNick: WideString;
-    nIdx: Integer;
-begin
-  FTrucks.Clear;
-  nNick := EditTrucks.Text;
-  nIdx := Pos(':', nNick);
-
-  if nIdx > 1 then
-  begin
-    nNick := Copy(nNick, 1, nIdx);
-    FTrucks.Text := StringReplace(EditTrucks.Text, nNick, #13#10,
-                    [rfReplaceAll]);
-    //xxxxx 
-  end else
-  begin
-    FTrucks.AddStrings(EditTrucks.Lines);
-    //每行一车牌
-  end;
-
-  for nIdx:=FTrucks.Count - 1 downto 0 do
-  begin
-    FTrucks[nIdx] := Trim(FTrucks[nIdx]);
-    if (FTrucks[nIdx] = '') or (Pos(':', FTrucks[nIdx]) > 0) then
-      FTrucks.Delete(nIdx);
-    //清理空行
-  end;
-end;
-
 procedure TfFormMemo.BtnOKClick(Sender: TObject);
 var nStr,nSimple,nTruck: string;
     nIdx,nAllow: Integer;
@@ -173,8 +148,8 @@ begin
   EditTrucks.Lines.BeginUpdate;
   try
     BtnOK.Enabled := False;
-    GetValidTrucks;
-    
+    FDM.GetValidTrucks(EditTrucks.Lines, FTrucks);
+
     if FTrucks.Count < 1 then
     begin
       ShowMsg('车牌列表无效', sHint);

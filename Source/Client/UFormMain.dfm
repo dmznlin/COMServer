@@ -1937,4 +1937,9 @@ object fFormClient: TfFormClient
     Left = 392
     Top = 49
   end
+  object Timer1: TTimer
+    OnTimer = Timer1Timer
+    Left = 420
+    Top = 49
+  end
 end

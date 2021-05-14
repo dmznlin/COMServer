@@ -33,6 +33,10 @@ type
     procedure QueryData(const nQuery: TUniQuery; const nSQL: string);
     function ExecuteSQL(const nSQL: string): integer;
     //读写操作
+    procedure GetValidTrucks(const nTrucks, nList: TStrings);
+    //获取nTrucks中的有效车牌
+    procedure SaveVIPTrucks(const nFile: string);
+    //保存nTrucks中的VIP车牌
   end;
 
 var
@@ -43,7 +47,7 @@ implementation
 {$R *.dfm}
 
 uses
-  USysLoger;
+  UFormCtrl, USysDB, USysLoger;
 
 procedure WriteLog(const nEvent: string);
 begin
@@ -256,6 +260,80 @@ begin
   if nException <> '' then
     raise Exception.Create(nException);
   //xxxxx
+end;
+
+//Date: 2021-05-14
+//Parm: 车牌数据
+//Desc: 从nText中检索出有效的车牌,放入nList中
+procedure TFDM.GetValidTrucks(const nTrucks, nList: TStrings);
+var nNick: WideString;
+    nIdx: Integer;
+begin
+  nList.Clear;
+  nNick := nTrucks.Text;
+  nIdx := Pos(':', nNick);
+
+  if nIdx > 1 then
+  begin
+    nNick := Copy(nNick, 1, nIdx);
+    nList.Text := StringReplace(nTrucks.Text, nNick, #13#10, [rfReplaceAll]);
+    //xxxxx 
+  end else
+  begin
+    nList.AddStrings(nTrucks);
+    //每行一车牌
+  end;
+
+  for nIdx:=nList.Count - 1 downto 0 do
+  begin
+    nList[nIdx] := Trim(nList[nIdx]);
+    if (nList[nIdx] = '') or (Pos(':', nList[nIdx]) > 0) then
+      nList.Delete(nIdx);
+    //清理空行
+  end;
+end;
+
+//Date: 2021-05-14
+//Parm: 车牌文件
+//Desc: 将nFile中的车牌存入vip表
+procedure TFDM.SaveVIPTrucks(const nFile: string);
+var nStr: string;
+    nIdx: Integer;
+    nTrucks,nList: TStrings;
+begin
+  nTrucks := TStringList.Create;
+  nList := TStringList.Create;
+  try
+    try
+      nStr := ChangeFileExt(nFile, '.old');
+      RenameFile(nFile, nStr);
+
+      nTrucks.LoadFromFile(nStr);
+      GetValidTrucks(nTrucks, nList);
+
+      for nIdx:=0 to nList.Count - 1 do
+      begin
+        nStr := MakeSQLByStr([
+                SF('t_simple', 'null', sfVal),
+                SF('t_struck', 'null', sfVal),
+                SF('t_truck', nList[nIdx]),
+                SF('t_user', gLocalName),
+                SF('t_time', 'now()', sfVal),
+                SF('t_valid', 0, sfVal),
+                SF('t_allow', '1', sfVal)
+                ], sTable_Truck, '', True);
+        FDM.ExecuteSQL(nStr);
+      end;
+    except
+      on nErr: Exception do
+      begin
+        WriteLog(nErr.Message);
+      end;
+    end;
+  finally
+    nList.Free;
+    nTrucks.Free;
+  end;   
 end;
 
 end.

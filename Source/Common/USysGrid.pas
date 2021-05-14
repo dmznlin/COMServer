@@ -27,6 +27,7 @@ var
 resourcestring
   sHint               = 'ÌבÊ¾';
   sConfig             = 'Config.Ini';
+  sVIPDir             = 'AutoVip';
 
 implementation
 

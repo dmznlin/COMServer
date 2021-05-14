@@ -110,6 +110,7 @@ type
     cxView2Column6: TcxGridDBColumn;
     cxView2Column7: TcxGridDBColumn;
     cxView3Column3: TcxGridDBColumn;
+    Timer1: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure wPagePageChanging(Sender: TObject; NewPage: TcxTabSheet;
@@ -130,6 +131,7 @@ type
     procedure EditFindSimpleKeyPress(Sender: TObject; var Key: Char);
     procedure EditFindSimplePropertiesButtonClick(Sender: TObject;
       AButtonIndex: Integer);
+    procedure Timer1Timer(Sender: TObject);
   private
     { Private declarations }
     FUserPasswd: string;
@@ -181,8 +183,14 @@ begin
   Sheet4.TabVisible := False;
   {$ENDIF}
 
-  LoadFormConfig;
+  {$IFDEF SimpleClient}
+  Sheet1.TabVisible := False;
+  Sheet3.TabVisible := False;
+  Sheet4.TabVisible := False;
+  {$ENDIF}
+
   GetLocalIPConfig(gLocalName, nStr);
+  LoadFormConfig;
 end;
 
 procedure TfFormClient.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -237,7 +245,13 @@ procedure TfFormClient.RefreshVIPTruckList(nHasDel: Boolean; nWhere: string);
 var nStr: string;
 begin
   FLoadValidTruck := not nHasDel;
+  {$IFDEF SimpleClient}
+  nStr := 'Select * from %s Where t_valid=%d %s ' +
+          Format('And t_user=''%s'' ', [gLocalName]) +
+          'Order By id';
+  {$ELSE}
   nStr := 'Select * from %s Where t_valid=%d %s Order By id';
+  {$ENDIF}
 
   if nWhere <> '' then
     nWhere := Format('And (%s)', [nWhere]);
@@ -540,6 +554,42 @@ begin
   nStr := 't_truck like ''%%%s%%''';
   nStr := Format(nStr, [EditFindSimple.Text]);
   RefreshSimpleList(False, nStr);
+end;
+
+procedure TfFormClient.Timer1Timer(Sender: TObject);
+var nList: TStrings;
+    nInt: Integer;
+    nSR: TSearchRec;
+begin
+  if Timer1.Tag < 10 then
+  begin
+    Timer1.Tag := Timer1.Tag + 1;
+    Exit;
+  end;
+
+  Timer1.Tag := 0;
+  if not DirectoryExists(gPath + sVIPDir) then
+  begin
+    ForceDirectories(gPath + sVIPDir);
+    Exit;
+  end;
+
+  nList := TStringList.Create;
+  try
+    nInt := FindFirst(gPath + sVIPDir + '\*.txt', faAnyFile, nSR);
+    while nInt = 0 do
+    begin
+      nList.Add(gPath + sVIPDir + '\' + nSR.Name);
+      nInt := FindNext(nSR);
+    end;
+
+    FindClose(nSR);
+    for nInt:=nList.Count-1 downto 0 do
+      FDM.SaveVIPTrucks(nList[nInt]);
+    //xxxxx
+  finally
+    nList.Free;
+  end;   
 end;
 
 end.
