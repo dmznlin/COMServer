@@ -8,7 +8,9 @@ uses
   UFormMain in 'UFormMain.pas' {fFormMain: TUnimForm},
   UFormLogin in 'UFormLogin.pas' {fFormLogin: TUnimLoginForm},
   UFormNormal in 'UFormNormal.pas' {fFormNormal: TUnimForm},
-  UFormTruckVIP in 'UFormTruckVIP.pas' {fFormTruckVIP: TUnimForm};
+  UFormTruckVIP in 'UFormTruckVIP.pas' {fFormTruckVIP: TUnimForm},
+  UFormNewPassword in 'UFormNewPassword.pas' {fFormNewPwd: TUnimForm},
+  UFormAddTruck in 'UFormAddTruck.pas' {fFormAddTruck: TUnimForm};
 
 {$R *.res}
 

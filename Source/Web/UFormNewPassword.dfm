@@ -1,0 +1,89 @@
+inherited fFormNewPwd: TfFormNewPwd
+  Caption = #20462#25913#23494#30721
+  PixelsPerInch = 96
+  TextHeight = 13
+  ScrollPosition = 0
+  ScrollHeight = 47
+  PlatformData = {}
+  object PanelLogin: TUnimContainerPanel
+    Left = 0
+    Top = 0
+    Width = 320
+    Height = 240
+    Hint = ''
+    Align = alTop
+    AlignmentControl = uniAlignmentClient
+    Layout = 'hbox'
+    object PanelL: TUnimContainerPanel
+      Left = 0
+      Top = 0
+      Width = 25
+      Height = 240
+      Hint = ''
+      Align = alLeft
+      Flex = 1
+    end
+    object PanelM: TUnimContainerPanel
+      Left = 25
+      Top = 0
+      Width = 270
+      Height = 240
+      Hint = ''
+      Align = alClient
+      Flex = 8
+      object EditOld: TUnimEdit
+        AlignWithMargins = True
+        Left = 3
+        Top = 3
+        Width = 264
+        Height = 47
+        Hint = ''
+        Align = alTop
+        Text = ''
+        PasswordChar = '#'
+        EmptyText = #26087#23494#30721
+        ParentFont = False
+        LayoutConfig.Margin = '5'
+        TabOrder = 1
+        MaxLength = 10
+      end
+      object EditNew: TUnimEdit
+        AlignWithMargins = True
+        Left = 3
+        Top = 56
+        Width = 264
+        Height = 47
+        Hint = ''
+        Align = alTop
+        Text = ''
+        PasswordChar = '#'
+        EmptyText = #26032#23494#30721
+        ParentFont = False
+        LayoutConfig.Margin = '5'
+        TabOrder = 2
+        MaxLength = 10
+      end
+      object BtnLogin: TUnimButton
+        AlignWithMargins = True
+        Left = 3
+        Top = 109
+        Width = 264
+        Height = 47
+        Hint = ''
+        Align = alTop
+        Caption = #26356#26032#23494#30721
+        LayoutConfig.Margin = '5'
+        OnClick = BtnLoginClick
+      end
+    end
+    object PanelR: TUnimContainerPanel
+      Left = 295
+      Top = 0
+      Width = 25
+      Height = 240
+      Hint = ''
+      Align = alRight
+      Flex = 1
+    end
+  end
+end

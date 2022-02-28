@@ -18,7 +18,9 @@ type
     PanelMain: TUnimContainerPanel;
     Menu1: TUnimNestedList;
     MenuVIP1: TUniMenuItem;
+    MenuPwd: TUniMenuItem;
     procedure MenuVIP1Click(Sender: TObject);
+    procedure MenuPwdClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -37,6 +39,13 @@ uses
 function fFormMain: TfFormMain;
 begin
   Result := TfFormMain(UniMainModule.GetFormInstance(TfFormMain));
+end;
+
+procedure TfFormMain.MenuPwdClick(Sender: TObject);
+var nForm: TUnimForm;
+begin
+  nForm := SystemGetForm('TfFormNewPwd');
+  nForm.ShowModal();
 end;
 
 procedure TfFormMain.MenuVIP1Click(Sender: TObject);

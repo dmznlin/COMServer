@@ -43,7 +43,7 @@ implementation
 {$R *.dfm}
 
 uses
-  uniGUIVars, MainModule, uniGUIApplication, ULibFun;
+  uniGUIVars, MainModule, uniGUIApplication, ULibFun, USysBusiness;
 
 function fFormLogin: TfFormLogin;
 begin
@@ -77,23 +77,16 @@ end;
 
 //Desc: 登录
 procedure TfFormLogin.BtnLoginClick(Sender: TObject);
-var nStr: string;
 begin
-  EditUser.Text := Trim(EditUser.Text);
-  if EditUser.Text = '' then
+  if (EditUser.Text <> sDefaultUser) or
+     (EditPwd.Text <> gSysParam.FAdminKey) then
   begin
-    ShowMessage('请输入用户名');
+    ShowMessageN('用户名或密码错误');
     Exit;
   end;
 
-  with ULibFun.TStringHelper do
-  try
-
-    UpdateCookies(not CheckPassword.Toggled);
-    ModalResult := mrOk;
-  finally
-
-  end;
+  UpdateCookies(not CheckPassword.Toggled);
+  ModalResult := mrOk;
 end;
 
 procedure TfFormLogin.UpdateCookies(const nClear: Boolean);

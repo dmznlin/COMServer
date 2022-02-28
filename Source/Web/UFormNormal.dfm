@@ -4,8 +4,7 @@ object fFormNormal: TfFormNormal
   ClientHeight = 480
   ClientWidth = 320
   Caption = 'title'
-  CloseButton.Text = #36820#22238
-  CloseButton.UI = 'round'
+  CloseButton.UI = 'plain'
   CloseButton.IconCls = 'arrow_left'
   CloseButton.DefaultIcon = False
   TitleButtons = <>

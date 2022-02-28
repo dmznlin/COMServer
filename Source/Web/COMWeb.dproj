@@ -3,7 +3,7 @@
         <ProjectGuid>{18878C62-5EB5-429A-A2F8-DAD2CF72DA4E}</ProjectGuid>
         <MainSource>COMWeb.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Application</AppType>
         <FrameworkType>VCL</FrameworkType>
@@ -85,6 +85,10 @@
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <AppEnableHighDPI>true</AppEnableHighDPI>
+        <VerInfo_Keys>CompanyName=;FileDescription=WebUI;FileVersion=1.0.1.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName)</VerInfo_Keys>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Release>1</VerInfo_Release>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
@@ -124,6 +128,16 @@
         </DCCReference>
         <DCCReference Include="UFormTruckVIP.pas">
             <Form>fFormTruckVIP</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TUnimForm</DesignClass>
+        </DCCReference>
+        <DCCReference Include="UFormNewPassword.pas">
+            <Form>fFormNewPwd</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TUnimForm</DesignClass>
+        </DCCReference>
+        <DCCReference Include="UFormAddTruck.pas">
+            <Form>fFormAddTruck</Form>
             <FormType>dfm</FormType>
             <DesignClass>TUnimForm</DesignClass>
         </DCCReference>

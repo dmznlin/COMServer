@@ -29,6 +29,7 @@ object fFormMain: TfFormMain
       Align = alClient
       Items.FontData = {0100000000}
       Title = #21151#33021#28165#21333
+      Images = UniMainModule.ImageListSmall
       SourceMenu = MenuMain
     end
   end
@@ -38,7 +39,14 @@ object fFormMain: TfFormMain
     Top = 16
     object MenuVIP1: TUniMenuItem
       Caption = 'VIP'#36710#36742
+      ImageIndex = 8
       OnClick = MenuVIP1Click
+    end
+    object MenuPwd: TUniMenuItem
+      Caption = #20462#25913#23494#30721
+      Default = True
+      ImageIndex = 10
+      OnClick = MenuPwdClick
     end
   end
 end

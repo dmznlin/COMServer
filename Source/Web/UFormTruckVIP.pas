@@ -10,8 +10,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   UFormNormal, uniGUIBaseClasses, uniGUIClasses, uniGUImJSForm, uniDBGrid,
-  unimDBGrid, Data.DB, kbmMemTable, unimMenu, uniBasicGrid, unimDBListGrid,
-  uniButton, unimButton, uniEdit, unimEdit;
+  unimDBGrid, uniGUImForm, Data.DB, kbmMemTable, unimMenu, uniBasicGrid,
+  unimDBListGrid, uniButton, unimButton, uniEdit, unimEdit;
 
 type
   TfFormTruckVIP = class(TfFormNormal)
@@ -246,8 +246,16 @@ end;
 
 //Desc: Ìí¼Ó³µÁ¾
 procedure TfFormTruckVIP.BtnAddClick(Sender: TObject);
+var nForm: TUnimForm;
 begin
-//
+  nForm := SystemGetForm('TfFormAddTruck');
+  nForm.ShowModal(procedure(Sender: TComponent; Result:Integer)
+  begin
+    if Result = mrOk then
+    begin
+      LoadVIPTruckData(False);
+    end;
+  end);
 end;
 
 initialization
