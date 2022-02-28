@@ -92,6 +92,10 @@ type
     //显示日志
     procedure DoExecute(const nContext: TIdContext);
     //执行动作
+    procedure DoAdjustControl(const nOpen: Boolean);
+    procedure DoThreadSync(const nData: Pointer; const nSize: Cardinal);
+    procedure DoThreadSyncFree(const nData: Pointer; const nSize: Cardinal);
+    //线程UI交互
     procedure LoadCOMConfig;
     //载入配置
     function FindCOMItem(const nCOM: TObject): Integer; overload;
@@ -133,10 +137,22 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, Registry, ULibFun, UMgrCOMM, ZnMD5, USysLoger, USysDB,
+  IniFiles, Registry, ULibFun, UMgrSync, UMgrCOMM, ZnMD5, USysLoger, USysDB,
   UFormInputbox, UObjectList;
 
+type
+  PSyncThreadUI = ^TSyncThreadUI;
+  TSyncThreadUI = record
+    FCommand : Word;                                  //命令
+    FLParam  : Word;                                  //低参数
+    FHParam  : Word;                                  //高参数
+  end;
+
 const
+  cCmd_Sync_AdjustControl = $01;                      //校正开关
+  cCmd_Sync_AdjustOpen    = $11;
+  cCmd_Sync_AdjustClose   = $12;
+
   cChar_Head       = Char($01);                       //协议头
   cChar_End        = Char($FF);                       //协议尾
   cSizeData        = SizeOf(TDataItem);               //数据大小
@@ -622,6 +638,10 @@ begin
 
   LoadCOMConfig;
   //读取串口配置
+
+  gSynchronizer.SyncEvent := DoThreadSync;
+  gSynchronizer.SyncFreeEvent := DoThreadSyncFree;
+  //线程到主进程业务同步
 end;
 
 procedure TfFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -874,6 +894,42 @@ begin
   end;
 end;
 
+procedure TfFormMain.DoThreadSync(const nData: Pointer; const nSize: Cardinal);
+var nCmd: PSyncThreadUI;
+begin
+  nCmd := nData;
+  if nCmd.FCommand = cCmd_Sync_AdjustControl then
+  begin
+    if nCmd.FLParam = cCmd_Sync_AdjustOpen then
+      CheckAdjust.State := cbsUnchecked;
+    //不关闭校正
+
+    if nCmd.FLParam = cCmd_Sync_AdjustClose then
+      CheckAdjust.State := cbsChecked;
+    //关闭校正
+  end;
+end;
+
+procedure TfFormMain.DoThreadSyncFree(const nData: Pointer;
+  const nSize: Cardinal);
+begin
+  Dispose(PSyncThreadUI(nData));
+end;
+
+procedure TfFormMain.DoAdjustControl(const nOpen: Boolean);
+var nCmd: PSyncThreadUI;
+begin
+  New(nCmd);
+  nCmd.FCommand := cCmd_Sync_AdjustControl;
+
+  if nOpen then
+      nCmd.FLParam := cCmd_Sync_AdjustOpen
+  else nCmd.FLParam := cCmd_Sync_AdjustClose;
+
+  gSynchronizer.AddData(nCmd, 0);
+  gSynchronizer.ApplySync;
+end;
+
 procedure TfFormMain.DoExecute(const nContext: TIdContext);
 var nStr: string;
     nList: TStrings;
@@ -886,6 +942,33 @@ begin
     nPoolItem := gObjectPoolManager.LockObject(TStringList);
     nList := nPoolItem.FObject as TStrings;
     nList.Text := DecodeBase64(nContext.Connection.IOHandler.ReadLn());
+
+    nStr := Trim(nList.Values['CMD_AdjustControl']);
+    if nStr <> '' then
+    begin
+      if nStr = sFlag_Enabled then
+      begin
+        DoAdjustControl(True);
+        WriteLog('远程打开数据校正');
+      end else
+
+      if nStr = sFlag_Disabled then
+      begin
+        DoAdjustControl(False);
+        WriteLog('远程关闭数据校正');
+      end else
+      begin
+        if CheckAdjust.State = cbsChecked then
+             nStr := sFlag_Disabled
+        else nStr := sFlag_Enabled;
+
+        nStr := 'CMD_AdjustControl=' + nStr;
+        nContext.Connection.IOHandler.WriteLn(EncodeBase64(nStr));
+        WriteLog('远程获取"数据校正"状态');
+      end;
+
+      Exit;
+    end;
 
     nStr := Trim(nList.Values['LineNo']);    
     if not IsNumber(nStr, False) then Exit;

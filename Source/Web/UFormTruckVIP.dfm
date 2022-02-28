@@ -81,6 +81,11 @@ inherited fFormTruckVIP: TfFormTruckVIP
           Width = 150
         end
         item
+          Title.Caption = #31867#22411
+          FieldName = 'T_Allow'
+          Width = 64
+        end
+        item
           Title.Caption = #25805#20316#20154
           FieldName = 'T_User'
           Width = 64

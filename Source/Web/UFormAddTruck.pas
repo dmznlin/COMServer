@@ -10,12 +10,17 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, UFormNormal, uniButton, unimButton,
   uniGUIClasses, uniEdit, unimEdit, uniGUIBaseClasses, uniGUImJSForm,
-  System.Classes, uniPanel, uniMemo, unimPanel, unimMemo;
+  System.Classes, uniPanel, uniMemo, unimPanel, unimMemo, uniCheckBox,
+  unimCheckBox;
 
 type
   TfFormAddTruck = class(TfFormNormal)
     EditTrucks: TUnimMemo;
-    PanelB: TUnimPanel;
+    PanelTool: TUnimContainerPanel;
+    PanelR: TUnimContainerPanel;
+    PanelC: TUnimContainerPanel;
+    PanelL: TUnimContainerPanel;
+    Check1: TUnimCheckBox;
     BtnSave: TUnimButton;
     procedure BtnSaveClick(Sender: TObject);
     procedure UnimFormCreate(Sender: TObject);
@@ -71,7 +76,7 @@ end;
 
 procedure TfFormAddTruck.BtnSaveClick(Sender: TObject);
 var nStr: string;
-    nIdx: Integer;
+    nIdx,nAllow: Integer;
     nTrucks,nList: TStrings;
 begin
   EditTrucks.Text := Trim(EditTrucks.Text);
@@ -94,6 +99,10 @@ begin
       Exit;
     end;
 
+    if Check1.Checked then
+         nAllow := 0
+    else nAllow := 1;
+
     nList := gMG.FObjectPool.Lock(TStrings) as TStrings;
     with TSQLBuilder do
     for nIdx:=0 to nTrucks.Count - 1 do
@@ -103,7 +112,7 @@ begin
               SF('t_user', sDefaultUser),
               SF('t_time', 'now()', sfVal),
               SF('t_valid', 0, sfVal),
-              SF('t_allow', 1, sfVal)
+              SF('t_allow', nAllow, sfVal)
               ], sTable_Truck, '', True);
       nList.Add(nStr);
     end;

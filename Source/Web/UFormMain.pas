@@ -19,8 +19,11 @@ type
     Menu1: TUnimNestedList;
     MenuVIP1: TUniMenuItem;
     MenuPwd: TUniMenuItem;
+    N1: TUniMenuItem;
+    MenuAdjustCtrl: TUniMenuItem;
     procedure MenuVIP1Click(Sender: TObject);
     procedure MenuPwdClick(Sender: TObject);
+    procedure MenuAdjustCtrlClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -39,6 +42,13 @@ uses
 function fFormMain: TfFormMain;
 begin
   Result := TfFormMain(UniMainModule.GetFormInstance(TfFormMain));
+end;
+
+procedure TfFormMain.MenuAdjustCtrlClick(Sender: TObject);
+var nForm: TUnimForm;
+begin
+  nForm := SystemGetForm('TfFormAdjustControl');
+  nForm.ShowModal();
 end;
 
 procedure TfFormMain.MenuPwdClick(Sender: TObject);

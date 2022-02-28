@@ -141,6 +141,11 @@
             <FormType>dfm</FormType>
             <DesignClass>TUnimForm</DesignClass>
         </DCCReference>
+        <DCCReference Include="UFormAdjustControl.pas">
+            <Form>fFormAdjustControl</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TUnimForm</DesignClass>
+        </DCCReference>
         <BuildConfiguration Include="Debug">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -172,6 +177,12 @@
                 <Platform value="Win64">False</Platform>
             </Platforms>
             <Deployment Version="3">
+                <DeployFile LocalName="..\..\Bin\Web\COMWeb.exe" Configuration="Release" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>COMWeb.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\..\Bin\Web\COMWeb.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>COMWeb.exe</RemoteName>

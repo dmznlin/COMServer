@@ -783,4 +783,13 @@ object UniMainModule: TUniMainModule
       0000000000000000000000000000000000000000000000000000000000000000
       000000000000000000000000000000000000000000000000}
   end
+  object TCPClient1: TIdTCPClient
+    ConnectTimeout = 3000
+    Host = '127.0.0.1'
+    IPVersion = Id_IPv4
+    Port = 8080
+    ReadTimeout = 2000
+    Left = 33
+    Top = 78
+  end
 end

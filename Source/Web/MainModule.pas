@@ -9,12 +9,14 @@ interface
 uses
   uniGUIMainModule, SysUtils, Classes, Vcl.Graphics, Data.Win.ADODB, Data.DB,
   Datasnap.DBClient, System.Variants, uniGUIBaseClasses, uniGUIClasses,
-  uniImageList, uniGUIForm, uniDBGrid, uniGUImForm, uniGUITypes;
+  uniImageList, uniGUIForm, uniDBGrid, uniGUImForm, uniGUITypes, IdTCPClient,
+  IdBaseComponent, IdComponent, IdTCPConnection;
 
 type
   TUniMainModule = class(TUniGUIMainModule)
     ImageListSmall: TUniNativeImageList;
     ImageListBar: TUniNativeImageList;
+    TCPClient1: TIdTCPClient;
     procedure UniGUIMainModuleCreate(Sender: TObject);
     procedure UniGUIMainModuleDestroy(Sender: TObject);
   private
@@ -45,10 +47,20 @@ begin
 end;
 
 procedure TUniMainModule.UniGUIMainModuleCreate(Sender: TObject);
-var nIdx: Integer;
+var nStr: string;
+    nIdx: Integer;
 begin
   FGridColumnAdjust := True;
   //默认允许调整表格列宽和顺序
+
+  nStr := gSysParam.FActive.GetParam('RemoteHost');
+  nIdx := Pos(':', nStr);
+  if nIdx > 1 then
+  begin
+    TCPClient1.Host := Copy(nStr, 1, nIdx - 1);
+    System.Delete(nStr, 1, nIdx);
+    TCPClient1.Port := StrToInt(nStr);
+  end;
 end;
 
 procedure TUniMainModule.UniGUIMainModuleDestroy(Sender: TObject);

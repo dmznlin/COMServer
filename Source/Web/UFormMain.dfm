@@ -42,6 +42,14 @@ object fFormMain: TfFormMain
       ImageIndex = 8
       OnClick = MenuVIP1Click
     end
+    object MenuAdjustCtrl: TUniMenuItem
+      Caption = #20851#38381#26657#27491
+      ImageIndex = 16
+      OnClick = MenuAdjustCtrlClick
+    end
+    object N1: TUniMenuItem
+      Caption = '-'
+    end
     object MenuPwd: TUniMenuItem
       Caption = #20462#25913#23494#30721
       Default = True

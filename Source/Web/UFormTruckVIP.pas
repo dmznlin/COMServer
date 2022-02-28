@@ -78,8 +78,9 @@ begin
   try
     FLoadValidTruck := not nHasDel;
     nStr := 'Select case T_Valid when 0 then ''正常'' else ''删除'' end ' +
-            'as T_Valid,id,T_Truck,T_User,T_Time,'' '' as Checked ' +
-            'from %s Where t_valid=%d %s Order By id';
+      'as T_Valid,case T_Allow when 0 then ''黑名单'' else ''VIP'' end ' +
+      'as T_Allow,id,T_Truck,T_User,T_Time,'' '' as Checked ' +
+      'from %s Where t_valid=%d %s Order By id';
 
     if nWhere <> '' then
       nWhere := Format('And (%s)', [nWhere]);

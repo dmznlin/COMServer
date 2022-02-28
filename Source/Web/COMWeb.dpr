@@ -10,7 +10,8 @@ uses
   UFormNormal in 'UFormNormal.pas' {fFormNormal: TUnimForm},
   UFormTruckVIP in 'UFormTruckVIP.pas' {fFormTruckVIP: TUnimForm},
   UFormNewPassword in 'UFormNewPassword.pas' {fFormNewPwd: TUnimForm},
-  UFormAddTruck in 'UFormAddTruck.pas' {fFormAddTruck: TUnimForm};
+  UFormAddTruck in 'UFormAddTruck.pas' {fFormAddTruck: TUnimForm},
+  UFormAdjustControl in 'UFormAdjustControl.pas' {fFormAdjustControl: TUnimForm};
 
 {$R *.res}
 
