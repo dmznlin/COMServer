@@ -105,6 +105,7 @@ type
     procedure ParseProtocol(const nItem,nGroup: Integer);
     procedure ParseProtocol_6A(const nItem,nGroup: Integer);
     procedure ParseWQProtocol(const nItem,nGroup: Integer);
+    procedure ParseWQProtocol_50a(const nItem,nGroup: Integer);
     procedure ParseWQProtocol_5105(const nItem,nGroup: Integer);
     procedure ParseWQProtocol_5160(const nItem,nGroup: Integer);
     procedure OnCOMData(Sender: TObject; Count: Integer);
@@ -118,6 +119,8 @@ type
     function AdjustWQProtocol(const nItem,nGroup: Integer;
       const nData: PWQData; const nInBlack: Boolean): Boolean;
     {$ENDIF}
+    function AdjustWQProtocol_50a(const nItem,nGroup: Integer;
+      const nData: Pointer; const nInBlack: Boolean): Boolean;
     function AdjustWQProtocol_5105(const nItem,nGroup,nHeadType: Integer;
       const nData: Pointer; const nInBlack: Boolean): Boolean;
     function AdjustWQProtocol_5160(const nItem,nGroup,nHeadType: Integer;
@@ -1863,6 +1866,12 @@ begin
         ParseWQProtocol_5105(nItem, nGroup);
         Exit;
       end;
+
+     MQW50A: //明泉50a协议解析
+      begin
+        ParseWQProtocol_50a(nItem, nGroup);
+        Exit;
+      end;
     end;
 
     nE := Length(FData);
@@ -2022,6 +2031,156 @@ begin
         FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
       end;
       {$ENDIF}
+    end;
+
+    RedirectData(nItem, nGroup, FData);
+    FData := '';
+    //发送数据
+  end;
+end;
+
+//Date: 2024-11-05
+//Parm: 源端口;转发端口
+//Desc: 分析nItem端口数据,校正符合条件的数据,然后转发到nGroup端口
+//      支持设备: 明泉50a
+procedure TfFormMain.ParseWQProtocol_50a(const nItem, nGroup: Integer);
+var nS,nE,nPos,nIdx: Integer;
+    nHeadType: Integer;
+    nInBlack: Boolean;
+
+    nData: TWQData;
+    nBuf: array[0..cSize_WQ_Data-1] of Char;
+begin
+  with FCOMPorts[nItem] do
+  begin
+    nHeadType := -1;
+    //默认无法区分协议头
+    nE := Length(FData);
+
+    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
+    begin
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      nE := 0;
+    end; //超时数据直接转发
+
+    if nE > cSize_WQ_Data then
+    begin
+      while nE > 0 do
+      begin
+        nPos := nE;
+        Dec(nE);
+
+        if Copy(FData, nPos, cChar_WQ_Head_L) = cChar_WQ_Head then Break;
+        //50a last header
+      end;
+
+      if nE > 0 then
+      begin
+        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
+        System.Delete(FData, 1, nE);
+      end;
+    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
+
+    //--------------------------------------------------------------------------
+    if Time() < gWNTimeStart then
+    begin
+      if Pos(cChar_WQ_JZ, FBuffer) > 0 then //尾气校准
+      begin
+        FCOMPorts[nGroup].FWQHighBiaoQiLJEnable := True;
+        FCOMPorts[nGroup].FWQHighBiaoQiT10Enable := False;
+        //打开尾气仪上行标记
+
+        RedirectData(nItem, nItem, cChar_WQ_JZYD);
+        //拦截尾气校准
+
+        WriteLog(Format('%d.拦截尾气校准', [FLineNo]));
+        Exit;
+      end;
+
+      if FWQHighBiaoQiLJEnable and (Pos(cChar_WQ_ChouQi, FBuffer) > 0) then
+      begin
+        FWQHighBiaoQiLJEnable := False;
+        FWQHighBiaoQiEnable := True;
+
+        FWQHighBiaoQiT10Enable := True;
+        FWQHighBiaoQiT10Init := GetTickCount();
+        WriteLog(Format('%d.校准气T10开始', [FLineNo]));
+      end;
+
+      if Pos(cChar_WQ_JCQ, FBuffer) > 0 then
+      begin
+        FWQBiaoQiEnable := True;
+        FWQBiaoQiInit := GetTickCount();
+        WriteLog(Format('%d.开始通检查气', [FLineNo]));
+      end;
+
+      if Pos(cChar_WQ_JZQ, FBuffer) > 0 then
+      begin
+        FWQHighBiaoQiT10Enable := False;
+        FWQHighBiaoQiEnable := True;
+        FWQHighBiaoQiInit := GetTickCount();
+        WriteLog(Format('%d.开始通校准气', [FLineNo]));
+      end;
+
+      if Pos(cChar_WQ_JCQDone, FBuffer) > 0 then
+      begin
+        if FWQBiaoQiEnable then
+          WriteLog(Format('%d.通检查气结束', [FLineNo]));
+        //xxxxx
+
+        if FWQHighBiaoQiEnable then
+          WriteLog(Format('%d.通标准气结束', [FLineNo]));
+        //xxxxx
+
+        FWQBiaoQiEnable := False;
+        FWQHighBiaoQiEnable := False;
+        FWQHighBiaoQiLJEnable := False;
+        FWQHighBiaoQiT10Enable := False;
+      end;
+    end else
+    begin
+      FWQBiaoQiEnable := False;
+      FWQHighBiaoQiEnable := False;
+      FWQHighBiaoQiLJEnable := False;
+      FWQHighBiaoQiT10Enable := False;
+    end;
+                            
+    if (Pos(cChar_WQ_Head, FBuffer) < 1) and (FData = '') then
+    begin
+      RedirectData(nItem, nGroup, FBuffer);
+      //非协议数据直接转发
+      Exit;
+    end; 
+
+    FDataLast := GetTickCount;
+    FData :=  FData + FBuffer;
+    //保存数据待分析
+
+    nS := Pos(cChar_WQ_Head, FData);
+    if nS > 0 then
+    begin
+      nHeadType := 3;
+      nPos := Length(FData);
+      if nPos - nS + 1 < cSize_WQ_Data then Exit; //未找到完整协议包
+    end;
+
+    if (nHeadType > 0) and (FWQBiaoQiEnable or FWQHighBiaoQiEnable or
+        gTruckManager.VIPTruckInLine(FLineNo, ctWQ, FTruckNo, @nInBlack)) then //VIP车辆参与校正
+    begin   
+      nE := nS + cSize_WQ_Data - 1;
+      FBuffer := Copy(FData, nS, cSize_WQ_Data);
+
+      for nIdx:=Low(nBuf) to High(nBuf) do
+        nBuf[nIdx] := FBuffer[nIdx + 1];
+      Move(nBuf, nData, cSize_WQ_Data); //复制到协议包,准备分析
+
+      if AdjustWQProtocol_50a(nItem, nGroup, @nData, nInBlack) then
+      begin
+        SetString(FBuffer, PChar(@nData.FHead[0]), cSize_WQ_Data);
+        FBuffer[cSize_WQ_Data] := MakeCRC(FBuffer, 1, cSize_WQ_Data - 1);
+        FData := Copy(FData, 1, nS-1) + FBuffer + Copy(FData, nE+1, nPos-nE+1);
+      end;
     end;
 
     RedirectData(nItem, nGroup, FData);
@@ -3674,6 +3833,396 @@ function TfFormMain.AdjustWQProtocol_5105(const nItem, nGroup,
   const nInBlack: Boolean): Boolean;
 begin
   Result := AdjustWQProtocol_5160(nItem, nGroup, nHeadType, nData, nInBlack);
+end;
+
+//Date: 2024-11-07
+//Parm: 源端口;转发端口;协议数据;黑名单
+//Desc: 使用比例修正数据
+function TfFormMain.AdjustWQProtocol_50a(const nItem,nGroup: Integer;
+  const nData: Pointer; const nInBlack: Boolean): Boolean;
+var nStr: string;
+    nDiff: Int64;
+    nBili: Double;
+    nInt,nVal: Integer;
+    nDT: PWQData;
+    nBK: TWQData;//backup
+
+  //Desc: 显示日志
+  procedure ShowData;
+  begin
+    nStr := Format('%d.50A-CO2:[ %d-%d ] CO:[ %d-%d ] HC:[ %d-%d ] ' +
+            'NO:[ %d-%d ] O2:[ %d-%d ] KRB:[ %d-%d ]', [
+         FCOMPorts[nItem].FLineNo,
+         Item2Word(nBK.FCO2),  Item2Word(nDT.FCO2),
+         Item2Word(nBK.FCO), Item2Word(nDT.FCO),
+         Item2Word(nBK.FHC), Item2Word(nDT.FHC),
+         Item2Word(nBK.FNO), Item2Word(nDT.FNO),
+         Item2Word(nBK.FO2), Item2Word(nDT.FO2),
+         Item2Word(nBK.FKRB), Item2Word(nDT.FKRB)]);
+    WriteLog(nStr);
+  end;
+
+  //Desc: 标气索引
+  function GetBiaoQi(const nLine: Integer): Integer;
+  var i: Integer;
+  begin
+    Result := -1;
+    for i:=Low(gWQBiaoQi) to High(gWQBiaoQi) do
+    if gWQBiaoQi[i].FLineNo = nLine then
+    begin
+      Result := i;
+      Break;
+    end;
+  end;
+begin
+  Result := False;
+  nDT := nData;
+  
+  with FCOMPorts[nItem] do
+  begin
+    if CheckShowWQ.Checked then
+      nBK := nDT^;
+    //copy data
+
+    if FWQBiaoQiEnable then //抽低标准气
+    begin
+      nDiff := GetTickCountDiff(FWQBiaoQiInit);
+      if (gWQDelayBiaoQi <= 0) or (nDiff >= gWQDelayBiaoQi) then
+           nBili := 1
+      else nBili := nDiff / gWQDelayBiaoQi;
+
+      nInt := GetBiaoQi(FLineNo);
+      if nInt > -1 then
+      with gWQBiaoQi[nInt] do
+      begin
+        nVal :=  Item2Word(nDT.FHC);
+        if (nVal < FHC - FHC_WC) or (nVal > FHC + FHC_WC) then
+        begin
+          Word2Item(nDT.FHC, Trunc((FHC + Random(3)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FNO);
+        if (nVal < FNO - FNO_WC) or (nVal > FNO + FNO_WC) then
+        begin
+          Word2Item(nDT.FNO, Trunc((FNO + Random(5)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FCO);
+        if (nVal < FCO - FCO_WC) or (nVal > FCO + FCO_WC) then
+        begin
+          Word2Item(nDT.FCO, Trunc((FCO + Random(3)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FCO2);
+        if (nVal < FCO2 - FCO2_WC) or (nVal > FCO2 + FCO2_WC) then
+        begin
+          Word2Item(nDT.FCO2, Trunc((FCO2 + Random(3)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FO2);
+        if (nVal < FO2 - FO2_WC) or (nVal > FO2 + FO2_WC) then
+        begin
+          Word2Item(nDT.FO2, Trunc((FO2 + Random(3)) * nBili));
+          Result := True;
+        end;
+      end;
+
+      if CheckShowWQ.Checked then
+        ShowData();
+      Exit;
+    end;
+
+    if FWQHighBiaoQiEnable then //抽高标准气
+    begin
+      if FWQHighBiaoQiT10Enable then
+      begin
+        nDiff := GetTickCountDiff(FWQHighBiaoQiT10Init);
+        if (gWQDelayHighBiaoQiT10 <= 0) or (nDiff >= gWQDelayHighBiaoQiT10) then
+             nBili := 0
+        else nBili := 1 - nDiff / gWQDelayHighBiaoQiT10;
+      end else
+      begin
+        nDiff := GetTickCountDiff(FWQHighBiaoQiInit);
+        if (gWQDelayHighBiaoQi <= 0) or (nDiff >= gWQDelayHighBiaoQi) then
+             nBili := 1
+        else nBili := nDiff / gWQDelayHighBiaoQi;
+      end;
+
+      nInt := GetBiaoQi(FLineNo);
+      if nInt > -1 then
+      with gWQBiaoQi[nInt] do
+      begin
+        nVal :=  Item2Word(nDT.FHC);
+        if (nVal < FHHC - FHHC_WC) or (nVal > FHHC + FHHC_WC) then
+        begin
+          Word2Item(nDT.FHC, Trunc((FHHC + Random(3)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FNO);
+        if (nVal < FHNO - FHNO_WC) or (nVal > FHNO + FHNO_WC) then
+        begin
+          Word2Item(nDT.FNO, Trunc((FHNO + Random(5)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FCO);
+        if (nVal < FHCO - FHCO_WC) or (nVal > FHCO + FHCO_WC) then
+        begin
+          Word2Item(nDT.FCO, Trunc((FHCO + Random(3)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FCO2);
+        if (nVal < FHCO2 - FHCO2_WC) or (nVal > FHCO2 + FHCO2_WC) then
+        begin
+          Word2Item(nDT.FCO2, Trunc((FHCO2 + Random(3)) * nBili));
+          Result := True;
+        end;
+
+        nVal :=  Item2Word(nDT.FO2);
+        if (nVal < FHO2 - FHO2_WC) or (nVal > FHO2 + FHO2_WC) then
+        begin
+          if FWQHighBiaoQiT10Enable then
+               nVal := Trunc((2080 + Random(10)) * (1 - nBili)) //氧气补偿
+          else nVal := Trunc((FHO2 + Random(3)) * nBili);
+
+          Word2Item(nDT.FO2, nVal);
+          Result := True;
+        end;
+      end;
+
+      if CheckShowWQ.Checked then
+        ShowData();
+      Exit;
+    end;
+
+    nInt := Item2Word(nDT.FCO) + Item2Word(nDT.FCO2);
+    if nInt < gWQCO2BeforePipe then
+      FWQZeroCO2Last := GetTickCount();
+    //未插管计时开始
+
+    if nInt < gWQCO2AfterPipe then //co2低浓度标识未开始
+    begin
+      FWQBiliCO2.FBili := -1;
+      //待确定比例
+      FWQBiliStart := GetTickCount();
+      //开始比例计算计时
+
+      if (nInt >= gWQCO2BeforePipe) and
+         (GetTickCountDiff(FWQZeroCO2Last) <= gWQIntervalBeforePipe) then
+      begin
+        Word2Item(nDT.FCO, 0);
+        Word2Item(nDT.FHC, 0);
+        Word2Item(nDT.FNO, 0);
+          
+        Result := True;
+        WriteLog(Format('%d.A3-插管后CO2浓度过低,已清零', [FLineNo]));
+      end;
+
+      if CheckShowWQ.Checked then ShowData();
+      Exit;
+    end else
+    begin
+      FWQZeroCO2Last := 0;
+      //浓度升高,计时关闭
+    end;
+
+    if GetTickCountDiff(FWQBiliStart) < gWQIntervalAfterPipe then
+    begin
+      //Word2Item(nA3.FCO2, 0);
+      Word2Item(nDT.FCO, Random(2));
+      Word2Item(nDT.FHC, Random(2));
+      Word2Item(nDT.FNO, Random(2));
+      //Word2Item(nA3.FO2, 2085 + Random(3));
+
+      if CheckShowWQ.Checked then ShowData();
+      Result := True;
+      Exit;
+    end else
+
+    if FWQBiliCO2.FBili <= 0 then //无比例值,开始计算比例
+    begin
+      FWQBiliHC.FBili   := GetWQBili('HC', Item2Word(nDT.FHC), nItem, nInBlack);
+      FWQBiliNO.FBili   := GetWQBili('NO', Item2Word(nDT.FNO), nItem, nInBlack);
+      FWQBiliCO.FBili   := GetWQBili('CO', Item2Word(nDT.FCO), nItem, nInBlack);
+      FWQBiliCO2.FBili  := GetWQBili('CO2', Item2Word(nDT.FCO2), nItem, nInBlack);
+      FWQBiliKRB.FBili  := GetWQBili('KRB', Item2Word(nDT.FKRB), nItem, nInBlack);
+
+      FWQBiliHC.FBiliFirst := FWQBiliHC.FBili;
+      FWQBiliNO.FBiliFirst := FWQBiliNO.FBili;
+      FWQBiliCO.FBiliFirst := FWQBiliCO.FBili;
+      FWQBiliCO2.FBiliFirst := FWQBiliCO2.FBili;
+      FWQBiliKRB.FBiliFirst := FWQBiliKRB.FBili;
+
+      FWQBiliHC.FBiliNext := -1;
+      FWQBiliNO.FBiliNext := -1;
+      FWQBiliCO.FBiliNext := -1;
+      FWQBiliCO2.FBiliNext := -1;
+      FWQBiliKRB.FBiliNext := -1;
+    end else
+    begin //计算二次比例
+      with FWQBiliHC, gWQBiliNext do
+      if (FBiliNext < 0) and (FHC > 0) and (Item2Word(nDT.FHC) >= FHC) then
+      begin    
+        FNextInit := GetTickCount();
+        FNextInc := 0;
+        FBiliNext := GetWQBili('HC', Item2Word(nDT.FHC), nItem, nInBlack);
+
+        if (FBiliNext > 0) and (gWQBiliNext.FHC_Delay > 0) then
+          FNextInc := (FBiliNext - FBili) / gWQBiliNext.FHC_Delay;
+        //xxxxx
+      end;
+
+      with FWQBiliNO, gWQBiliNext do
+      if (FBiliNext < 0) and (FNO > 0) and (Item2Word(nDT.FNO) >= FNO) then
+      begin
+        FNextInit := GetTickCount();
+        FNextInc := 0;
+        FBiliNext := GetWQBili('NO', Item2Word(nDT.FNO), nItem, nInBlack);
+
+        if (FBiliNext > 0) and (gWQBiliNext.FNO_Delay > 0) then
+          FNextInc := (FBiliNext - FBili) / gWQBiliNext.FNO_Delay;
+        //xxxxx
+      end;
+
+      with FWQBiliCO, gWQBiliNext do
+      if (FBiliNext < 0) and (FCO > 0) and (Item2Word(nDT.FCO) >= FCO) then
+      begin
+        FNextInit := GetTickCount();
+        FNextInc := 0;
+        FBiliNext := GetWQBili('CO', Item2Word(nDT.FCO), nItem, nInBlack);
+
+        if (FBiliNext > 0) and (gWQBiliNext.FCO_Delay > 0) then
+          FNextInc := (FBiliNext - FBili) / gWQBiliNext.FCO_Delay;
+        //xxxxx
+      end;
+
+      with FWQBiliCO2, gWQBiliNext do
+      if (FBiliNext < 0) and (FCO2 > 0) and (Item2Word(nDT.FCO2) <= FCO2) then
+      begin
+        FNextInit := GetTickCount();
+        FNextInc := 0;
+        FBiliNext := GetWQBili('CO2', Item2Word(nDT.FCO2), nItem, nInBlack);
+
+        if (FBiliNext > 0) and (gWQBiliNext.FCO2_Delay > 0) then
+          FNextInc := (FBiliNext - FBili) / gWQBiliNext.FCO2_Delay;
+        //xxxxx
+      end;
+
+      with FWQBiliKRB, gWQBiliNext do
+      if (FBiliNext < 0) and (FKRB > 0) and (Item2Word(nDT.FKRB) >= FKRB) then
+      begin
+        FNextInit := GetTickCount();
+        FNextInc := 0;
+        FBiliNext := GetWQBili('KRB', Item2Word(nDT.FKRB), nItem, nInBlack);
+
+        if (FBiliNext > 0) and (gWQBiliNext.FKRB_Delay > 0) then
+          FNextInc := (FBiliNext - FBili) / gWQBiliNext.FKRB_Delay;
+        //xxxxx
+      end;
+    end;
+
+    //------------------------------------------------------------------------
+    with FWQBiliHC, gWQBiliNext do  //HC二次比例过渡
+    if FBiliNext > 0 then
+    begin
+      nDiff := GetTickCountDiff(FNextInit);
+      if (FHC_Delay > 0) and (nDiff < FHC_Delay) then
+           FBili := FBiliFirst + FNextInc * nDiff
+      else FBili := FBiliNext;
+
+      if (FNextInc > 0) and (FBili > FBiliNext) then FBili := FBiliNext;
+      if (FNextInc < 0) and (FBili < FBiliNext) then FBili := FBiliNext;
+    end;
+
+    with FWQBiliNO, gWQBiliNext do  //NO二次比例过渡
+    if FBiliNext > 0 then
+    begin
+      nDiff := GetTickCountDiff(FNextInit);
+      if (FNO_Delay > 0) and (nDiff < FNO_Delay) then
+           FBili := FBiliFirst + FNextInc * nDiff
+      else FBili := FBiliNext;
+
+      if (FNextInc > 0) and (FBili > FBiliNext) then FBili := FBiliNext;
+      if (FNextInc < 0) and (FBili < FBiliNext) then FBili := FBiliNext;
+    end;
+
+    with FWQBiliCO, gWQBiliNext do  //CO二次比例过渡
+    if FBiliNext > 0 then
+    begin
+      nDiff := GetTickCountDiff(FNextInit);
+      if (FCO_Delay > 0) and (nDiff < FCO_Delay) then
+           FBili := FBiliFirst + FNextInc * nDiff
+      else FBili := FBiliNext;
+
+      if (FNextInc > 0) and (FBili > FBiliNext) then FBili := FBiliNext;
+      if (FNextInc < 0) and (FBili < FBiliNext) then FBili := FBiliNext;
+    end;
+
+    with FWQBiliCO2, gWQBiliNext do  //CO2二次比例过渡
+    if FBiliNext > 0 then
+    begin
+      nDiff := GetTickCountDiff(FNextInit);
+      if (FCO2_Delay > 0) and (nDiff < FCO2_Delay) then
+           FBili := FBiliFirst + FNextInc * nDiff
+      else FBili := FBiliNext;
+
+      if (FNextInc > 0) and (FBili > FBiliNext) then FBili := FBiliNext;
+      if (FNextInc < 0) and (FBili < FBiliNext) then FBili := FBiliNext;
+    end;
+
+    with FWQBiliKRB, gWQBiliNext do  //空燃比二次比例过渡
+    if FBiliNext > 0 then
+    begin
+      nDiff := GetTickCountDiff(FNextInit);
+      if (FKRB_Delay > 0) and (nDiff < FKRB_Delay) then
+           FBili := FBiliFirst + FNextInc * nDiff
+      else FBili := FBiliNext;
+
+      if (FNextInc > 0) and (FBili > FBiliNext) then FBili := FBiliNext;
+      if (FNextInc < 0) and (FBili < FBiliNext) then FBili := FBiliNext;
+    end;
+
+    //------------------------------------------------------------------------
+    Word2Item(nDT.FCO, Trunc(Item2Word(nDT.FCO) * FWQBiliCO.FBili));
+    Word2Item(nDT.FHC, Trunc(Item2Word(nDT.FHC) * FWQBiliHC.FBili));
+    Word2Item(nDT.FNO, Trunc(Item2Word(nDT.FNO) * FWQBiliNO.FBili));
+
+    nInt := Item2Word(nDT.FCO2);
+    if nInt < 1400 then //CO2不足时补CO2
+    begin
+      nVal := nInt;
+      //old
+      nInt := Trunc(nInt * FWQBiliCO2.FBili);
+      //new
+        
+      if nInt > 1500 then
+           Word2Item(nDT.FCO2, 1470 + Random(30))
+      else Word2Item(nDT.FCO2, nInt);
+
+      if Item2Word(nDT.FO2) >= 300 then //反向降低O2,过低时不予校正
+      begin
+        nInt := Item2Word(nDT.FCO2);
+        if nVal < 1 then nVal := nInt;
+        Word2Item(nDT.FO2, Trunc(Item2Word(nDT.FO2) * (2 - nInt/nVal)));
+      end;
+
+      nInt := Trunc(Item2Word(nDT.FKRB) * FWQBiliKRB.FBili);
+      if nInt < 990 then  //下限0.99
+        nInt := 990 + Random(5);
+      Word2Item(nDT.FKRB, nInt);
+      //CO2变动时修正空燃比
+    end;
+
+    if CheckShowWQ.Checked then
+      ShowData();
+    Result := True;
+  end;
 end;
 
 end.

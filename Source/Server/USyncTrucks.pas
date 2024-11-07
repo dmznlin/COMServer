@@ -244,7 +244,7 @@ var nIni: TIniFile;
         Disconnect;
         ProviderName := 'MySQL';
         SpecificOptions.Values['Charset'] := 'gb2312';
-        SpecificOptions.Values['Direct'] := 'False';
+        //SpecificOptions.Values['Direct'] := 'False';
 
         Server := ReadString(nKey, 'Server', '');
         Port := ReadInteger(nKey, 'Port', 0);
@@ -252,7 +252,7 @@ var nIni: TIniFile;
         Username := ReadString(nKey, 'User', '');
         Password := DecodeBase64(ReadString(nKey, 'Password', ''));
 
-        if ReadInteger(nKey, 'DBEnable', 1) = 0 then
+        if ReadInteger(nKey, 'DBEnable', 0) = 0 then
         begin
           nConn.Tag := 0;
           //no conn
