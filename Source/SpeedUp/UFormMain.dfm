@@ -267,6 +267,17 @@ object fFormMain: TfFormMain
           TabOrder = 0
           OnChange = EditHotKey1Change
         end
+        object EditLi: TLabeledEdit
+          Left = 352
+          Top = 38
+          Width = 147
+          Height = 20
+          EditLabel.Width = 114
+          EditLabel.Height = 12
+          EditLabel.Caption = #36718#36793#25197#21147'('#25918#22823#27604#20363'):'
+          TabOrder = 2
+          OnChange = EditHotKey1Change
+        end
       end
     end
   end
