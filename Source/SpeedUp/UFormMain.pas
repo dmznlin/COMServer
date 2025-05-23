@@ -28,6 +28,7 @@ type
     FBuffer: string;              //数据缓存
     FData: string;                //协议数据
     FDataLast: Int64;             //接收时间
+    FDataIdx: Word;               //数据开始
     FInWork: Boolean;             //业务开始
   end;
 
@@ -113,7 +114,7 @@ type
     function FindSameGroup(const nIdx: Integer): Integer; overload;
     //检索数据
     function CalRate(): Boolean;
-    function AdjustValue(const nData: string): string;
+    function AdjustValue(const nData: string; const nLen,nIdx: Integer): string;
     procedure RedirectData(const nItem, nGroup: Integer; const nData: string);
     procedure ParseProtocol(const nItem, nGroup: Integer);
     //数据处理
@@ -320,6 +321,7 @@ begin
         FBuffer := '';
         FData := '';
         FDataLast := 0;
+        FDataIdx := 1;
         FInWork := False;
 
         FDeviceType := TDeviceType(ReadInteger(nList[nIdx], 'DeviceType', 0));
@@ -719,82 +721,54 @@ begin
       Exit;
     end;
 
-    if (not CheckSrv.Checked) or (FCOMPorts[nItem].FDeviceType = dtStation) or
-       (not FCOMPorts[nGroup].FInWork) then
-      //不校正,上位机,下位机非业务数据
+    with FCOMPorts[nItem] do
     begin
-      if FCOMPorts[nItem].FDeviceType = dtDevice then 
+      if (not CheckSrv.Checked) or
+         (FDeviceType = dtStation) or (not FInWork) then
+        //不校正,上位机,下位机非业务数据
       begin
-        if FCOMPorts[nItem].FData <> '' then //下位机残存数据
+        if (FDeviceType = dtDevice) and (FData <> '') then //下位机残存数据
         begin
-          RedirectData(nItem, nGroup, FCOMPorts[nItem].FData);
-          FCOMPorts[nItem].FData := '';
-        end;
-      end;
+          nInt := Length(FData);
+          if nInt >= FDataIdx then
+          begin
+            nStr := Copy(FData, FDataIdx, nInt - FDataIdx + 1);
+            RedirectData(nItem, nGroup, nStr);
+          end;
 
-      RedirectData(nItem, nGroup, FCOMPorts[nItem].FBuffer);
-      //直接转发
+          FData := '';
+          FDataIdx := 1;
+        end;
+
+        RedirectData(nItem, nGroup, FBuffer);
+        //直接转发
+      end;
     end;
        
     if FCOMPorts[nItem].FDeviceType = dtStation then //上位机
     with FCOMPorts[nItem] do
     begin
       FInWork := False; //解析出业务指令前,不校验
-      FData := FData + FBuffer;
+      nS := Pos(cTagStart, FBuffer);
+      nE := PosEx(cTagEnd, FBuffer, nS + 1);
 
-      while True do
+      if (nE > 0) and (nE - nS + 1 = cSizeCmd) then //指令包
       begin
-        nS := Pos(cTagStart, FData);
-        nE := Pos(cTagEnd, FData);
-
-        if (nS = 0) and (nE = 0) then //无标识位
-        begin
-          if Length(FData) > cSizeCmd * 2 then //超大包,清空
-            FData := '';
-          Break;
-        end;
-
-        while (nE = 0) or (nE - nS > cSizeCmd) do //包异常
-        begin
-          nInt := PosEx(cTagStart, FData, nS + 1);
-          //检查后面是否有新包
-          if nInt < 1 then Break;
-
-          System.Delete(FData, 1, nInt - 1);
-          nS := 1;
-
-          if nE > 0 then
-            nE := Pos(cTagEnd, FData);
-          //重新定位
-        end;
-
-        if (nE > 0) and (nE - nS + 1 = cSizeCmd) then //指令包
-        begin
-          nStr := Copy(FData, nS, nE - nS + 1);
-          FInWork := nStr = sDataCmd;
-          //判定是否为业务数据
-
-          System.Delete(FData, 1, nE); 
-          nS := 0;
-          nE := 0; //reset tag
-        end;
-
-        if nS > 1 then //新包,前面数据删除
-        begin
-          System.Delete(FData, 1, nS - 1);
-          if nE > 0 then
-            nE := Pos(cTagEnd, FData);
-          //删除后重新计算尾标
-        end;
-
-        if nE > 1 then
-          System.Delete(FData, 1, nE);
-        //删除旧包
+        nStr := Copy(FData, nS, nE - nS + 1);
+        FInWork := nStr = sDataCmd;
+        //判定是否为业务数据
       end;
+                    
+      FCOMPorts[nGroup].FInWork := FInWork;
+      //同步业务状态
+      
+      if FInWork then
+        FCOMPorts[nGroup].FDataIdx := 1;
+      //业务开始,重置下位机开始索引
     end;
 
     if (CheckSrv.Checked) and (FCOMPorts[nItem].FDeviceType = dtDevice) and
-       (FCOMPorts[nGroup].FInWork) then //校正,下位机,上位机业务中
+       (FCOMPorts[nItem].FInWork) then //校正,下位机,上位机业务中
       ParseProtocol(nItem, nGroup);
     //分析协议
   except
@@ -814,155 +788,140 @@ var nStr: string;
 begin
   with FCOMPorts[nItem] do
   begin
-    nE := Length(FData);
-    if (nE > 0) and (GetTickCount - FDataLast >= 1500) then
-    begin
-      RedirectData(nItem, nGroup, FData);
-      FData := '';
-      nE := 0;
-    end; //超时数据直接转发
-
-    if nE > cSizeData * 2 then
-    begin
-      while nE > 0 do
-      begin
-        if FData[nE] = cTagStart then
-          Break;
-        Dec(nE);
-      end;
-
-      if nE > 1 then
-      begin
-        RedirectData(nItem, nGroup, Copy(FData, 1, nE - 1));
-        System.Delete(FData, 1, nE - 1);
-      end;
-    end; //数据包过大时,最后一个协议头位置,将前面的数据转发
-
-    //--------------------------------------------------------------------------
     FDataLast := GetTickCount;
     FData := FData + FBuffer;
     //保存数据待分析
+                  
+    nS := Pos(cTagStart, FData);
+    nE := Pos(cTagEnd, FData);
 
-    while true do
+    if nS < 1 then //无包标识,非业务数据直接转发
     begin
-      nS := Pos(cTagStart, FData);
-      nE := Pos(cTagEnd, FData);
+      RedirectData(nItem, nGroup, FData);
+      FData := '';
+      FDataIdx := 1;
+      Exit;
+    end;
 
-      if (nS = 0) and (nE = 0) then //无标识位
-      begin
-        if Length(FData) > cSizeData * 2 then //超大包,清空
-        begin
-          RedirectData(nItem, nGroup, FData);
-          FData := '';
-        end;
+    if nS > 1 then //前指令的未发送数据
+    begin
+      RedirectData(nItem, nGroup, Copy(FData, 1, nS - 1));
+      System.Delete(FData, 1, nS - 1);
+      
+      nS := 1;
+      FDataIdx := 1;
 
-        Break;
-      end;
+      if nE > 0 then
+        nE := Pos(cTagEnd, FData);
+      //重新定位
+    end;
 
-      while (nE = 0) or (nE - nS > cSizeData) do //包异常
-      begin
-        nInt := PosEx(cTagStart, FData, nS + 1);
-        //检查后面是否有新包
-        if nInt < 1 then Break;
+    nInt := nS;
+    while nInt > 0 do //新包标识
+    begin
+      nInt := PosEx(cTagStart, FData, nS + 1);
+      //检查后面是否有新包
+      if nInt < 1 then Break;
 
-        RedirectData(nItem, nGroup, Copy(FData, 1, nInt - 1));
-        System.Delete(FData, 1, nInt - 1);
-        nS := 1;
-        
-        if nE > 0 then
-          nE := Pos(cTagEnd, FData);
-        //重新定位
-      end;
+      RedirectData(nItem, nGroup, Copy(FData, 1, nInt - 1));
+      System.Delete(FData, 1, nInt - 1);
 
-      if (nE > 0) and (nE - nS + 1 = cSizeData) then //指令包
-      begin
-        if nS > 1 then
-          RedirectData(nItem, nGroup, Copy(FData, 1, nS - 1));
-        //协议包前数据
+      nS := 1;
+      FDataIdx := 1;
+      
+      if nE > 0 then
+        nE := Pos(cTagEnd, FData);
+      //重新定位
+    end;
 
-        nStr := AdjustValue(Copy(FData, nS, nE - nS + 1));
-        RedirectData(nItem, nGroup, nStr);
-        System.Delete(FData, 1, nE);
+    if nE < 1 then //非尾包数据
+    begin
+      nInt := Length(FData);
+      if nInt < 12 then Exit; //数据不全
 
-        nS := 0;
-        nE := 0; //reset tag
-      end;
+      if FDataIdx = 1 then
+        FData := AdjustValue(FData, nInt, FDataIdx);
+      //首包校正
 
-      if nS > 1 then //新包,前面数据删除
-      begin
-        RedirectData(nItem, nGroup, Copy(FData, 1, nS - 1));
-        System.Delete(FData, 1, nS - 1);
+      RedirectData(nItem, nGroup, Copy(FData, FDataIdx,
+        nInt - FDataIdx + 1)); //发送
+      FDataIdx := nInt + 1;
+    end else
 
-        if nE > 0 then
-          nE := Pos(cTagEnd, FData);
-        //删除后重新计算尾标
-      end;
+    if nE - nS + 1 = cSizeData then //尾包数据,校验
+    begin
+      nStr := Copy(FData, nS, cSizeData);
+      nStr := AdjustValue(nStr, cSizeData, FDataIdx);
 
-      if nE > 0 then //旧尾包,全部转发
-      begin
-        RedirectData(nItem, nGroup, Copy(FData, 1, nE));
-        System.Delete(FData, 1, nE);
-      end;
+      RedirectData(nItem, nGroup, Copy(nStr, FDataIdx, nE - FDataIdx + 1));
+      System.Delete(FData, 1, nE);
+
+      FDataIdx := 1;
+      nS := 0;
+      nE := 0; //reset tag
+    end;
+
+    if nE > 1 then //非业务数据
+    begin
+      RedirectData(nItem, nGroup, Copy(FData, FDataIdx,
+        nE - FDataIdx + 1));
+      System.Delete(FData, 1, nE);
+      FDataIdx := 1;
     end;
   end;
 end;
 
 //Date: 2025-04-20
-//Parm: 数值
+//Parm: 数据;数据长度;待处理起始
 //Desc: 校正nData中的数值
-function TfFormMain.AdjustValue(const nData: string): string;
+function TfFormMain.AdjustValue(const nData: string;
+ const nLen,nIdx: Integer): string;
 var nStr: string;
-    nBool:Boolean;
     nOld,nNew,nInt: Integer;
 begin
   Result := nData;
-  nBool := False;
-  nStr := Copy(nData, 2, 6);
-
-  if IsNumber(nStr, True) then
+  if nIdx = 1 then //开始校正
   begin
-    nOld := Round(StrToFloat(nStr) * 100);
-    nNew := Round(nOld * FRate);
-
-    if nNew <> nOld then
+    nStr := Copy(nData, 2, 6);
+    if IsNumber(nStr, True) then
     begin
-      WriteLog(Format('车速: %d -> %d', [nOld, nNew]));
+      nOld := Round(StrToFloat(nStr) * 100);
+      nNew := Round(nOld * FRate);
+
+      if nNew <> nOld then
+      begin
+        WriteLog(Format('车速: %d -> %d', [nOld, nNew]));
+      end;
+
+      nStr := Format('%.2f', [nNew / 100]);
+      //校正数据,放大100倍,用于保留两位小数
+
+      nInt := 6 - Length(nStr);
+      if nInt > 0 then
+        nStr := StringOfChar('0', nInt) + nStr;
+      Result := '*' + nStr + Copy(Result, 8, nLen - 7);
     end;
 
-    nStr := Format('%.2f', [nNew / 100]);
-    //校正数据,放大100倍,用于保留两位小数
-
-    nInt := 6 - Length(nStr);
-    if nInt > 0 then
-      nStr := StringOfChar('0', nInt) + nStr;
-    //xxxxx
-
-    nBool := True;
-    Result := '*' + nStr + Copy(Result, 8, cSizeData - 7);
-  end;
-
-  nStr := Copy(nData, 8, 5);
-  if IsNumber(nStr, False) then
-  begin
-    nOld := StrToInt(nStr);
-    nNew := Round(nOld * FNiuLi);
-    
-    if nNew <> nOld then
+    nStr := Copy(nData, 8, 5);
+    if IsNumber(nStr, False) then
     begin
-      WriteLog(Format('扭力: %d -> %d', [nOld, nNew]));
+      nOld := StrToInt(nStr);
+      nNew := Round(nOld * FNiuLi);
+
+      if nNew <> nOld then
+      begin
+        WriteLog(Format('扭力: %d -> %d', [nOld, nNew]));
+      end;
+
+      nStr := IntToStr(nNew);
+      nInt := 5 - Length(nStr);
+      if nInt > 0 then
+        nStr := StringOfChar('0', nInt) + nStr;
+      Result := copy(Result, 1, 7) + nStr + Copy(Result, 13, nLen - 12);
     end;
-
-    nStr := IntToStr(nNew);
-    nInt := 5 - Length(nStr);
-    if nInt > 0 then
-      nStr := StringOfChar('0', nInt) + nStr;
-    //xxxxx
-
-    nBool := True;
-    Result := copy(Result, 1, 7) + nStr + Copy(Result, 13, cSizeData - 12);
   end;
 
-  if nBool then //已变更,重新校验
+  if nLen = cSizeData then //完整包,校正
   begin
     nNew := 0;
     for nInt:=1 to cSizeData - 2 do

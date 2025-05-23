@@ -13,7 +13,7 @@ var
   //»¥³â¾ä±ú
 
 begin
-  gMutexHwnd := CreateMutex(nil, True, 'RunSoft_QL_SpeedMon');
+  gMutexHwnd := CreateMutex(nil, True, 'RunSoft_QL_SpeedUp');
   //´´½¨»¥³âÁ¿
   if GetLastError = ERROR_ALREADY_EXISTS then
   begin

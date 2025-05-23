@@ -134,7 +134,10 @@ OriginalFilename=
 ProductName=
 ProductVersion=1.0.0.0
 Comments=
-LastCompiledTime=2025-04-21 15:58:33
+LastCompiledTime=2025-04-21 15:58:21
+[Excluded Packages]
+d:\Program Files\RemObjects\RemObjects SDK for Delphi\Dcu\D7\RemObjects_IDE_D7.bpl=Remoting SDK - IDE Integration for Win32
+D:\Program Files\Borland\Delphi7\Bin\RemObjects_Server_IDE_D7.bpl=Remoting SDK - Server IDE Integration for Win32
 [HistoryLists\hlUnitAliases]
 Count=1
 Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
