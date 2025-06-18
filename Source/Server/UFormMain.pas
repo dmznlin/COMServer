@@ -1797,20 +1797,20 @@ begin
     nDQ := 150 + Random(50);
     nSVal := FloatToStr(nDQ);
 
-    nInt := Length(nData.FNear.Fgq) - Length(nSVal);
+    nInt := Length(nData.FFar.Fgq) - Length(nSVal);
     if nInt > 0 then
       nSVal := StringOfChar('0', nInt) + nSVal;
     //xxxxx
 
-    nInt := Length(nData.FNear.Fgq);
-    nStr := Format('灯光补偿:[ %s -> %s ]', [Copy(nData.FNear.Fgq, 1, nInt),
+    nInt := Length(nData.FFar.Fgq);
+    nStr := Format('灯光补偿:[ %s -> %s ]', [Copy(nData.FFar.Fgq, 1, nInt),
                                              Copy(nSVal, 1, nInt)]);
     WriteLog(nStr);
 
     nInt := 1;
-    for nIdx:=Low(nData.FNear.Fgq) to High(nData.FNear.Fgq) do
+    for nIdx:=Low(nData.FFar.Fgq) to High(nData.FFar.Fgq) do
     begin
-      nData.FNear.Fgq[nIdx] := nSVal[nInt];
+      nData.FFar.Fgq[nIdx] := nSVal[nInt];
       Inc(nInt);
     end;
     Result := True;
@@ -1820,7 +1820,7 @@ begin
   begin
     nStr := '上下:[ ' + nData.FNear.Fczpc + '] ' +
             '灯高:[ ' + nData.FNear.Fdg + '] ' +
-            '强度:[ ' + nData.FNear.Fgq + ']';
+            '强度:[ ' + nData.FFar.Fgq + ']';
     WriteLog(nStr);
   end;
 end;
